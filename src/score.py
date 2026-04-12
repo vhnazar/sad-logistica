@@ -4,7 +4,7 @@ import pandas as pd
 from sqlalchemy import create_engine
 
 engine = create_engine(
-    f"postgresql+psycopg2://{os.getenv('DB_USER', 'postgres')}:{os.getenv('DB_PASSWORD')}@{os.getenv('DB_HOST', 'localhost')}:{os.getenv('DB_PORT', '5433')}/{os.getenv('DB_NAME', 'sad_logistica')}"
+    f"postgresql+psycopg://{os.getenv('DB_USER', 'postgres')}:{os.getenv('DB_PASSWORD')}@{os.getenv('DB_HOST', 'localhost')}:{os.getenv('DB_PORT', '5433')}/{os.getenv('DB_NAME', 'sad_logistica')}"
 )
 
 def buscar_operadores():
@@ -77,6 +77,26 @@ def buscar_os_pendentes():
     """
     return pd.read_sql_query(query, engine)
 
+def buscar_operadores_ativos():
+	query = """
+		SELECT 
+            ex.operador_id,
+            op.nome,
+            ex.os_id,
+            MAX(ed.deposito_id) AS deposito_id,
+            AVG(ed.rua)         AS rua_media,
+            AVG(ed.predio)      AS predio_media,
+            AVG(ed.nivel)       AS nivel_media,
+            AVG(ed.apartamento) AS apto_media
+        FROM vw_operadores_ativos v
+        JOIN execucoes ex  ON ex.os_id = v.os_id
+          AND ex.operador_id = v.operador_id
+        JOIN os_itens oi   ON oi.os_id = ex.os_id
+        JOIN enderecos ed  ON ed.id = oi.endereco_id
+        JOIN operadores op ON op.id = ex.operador_id
+        GROUP BY ex.operador_id, op.nome, ex.os_id
+	"""
+	return pd.read_sql_query(query, engine)
 
 def calcular_distancia(op, os):
     """
@@ -96,7 +116,7 @@ def calcular_distancia(op, os):
     )
 
 
-def calcular_score(operador, os_row, baseline, operadores):
+def calcular_score(operador, os_row, baseline, operadores_ativos):
     # 1. Tempo base do operador para esse tipo de OS
     filtro = (
         (baseline["matricula"] == operador["id"]) &
@@ -123,9 +143,9 @@ def calcular_score(operador, os_row, baseline, operadores):
     # Conta operadores no mesmo depósito (mesma zona)
     # O custo de congestão usa a vw_operadores_ativos para considerar execuções em andamento. Mas nos dados sintéticos todas as execuções estão finalizadas, então ele usa a tabela operadores e pega os dados como proxy.
     # Cada operador adicional representa ~60s de atraso esperado
-    mesmo_deposito = operadores[
-        (operadores["deposito_id"] == os_row["deposito_id"]) &
-        (operadores["id"] != operador["id"])
+    mesmo_deposito = operadores_ativos[
+        (operadores_ativos["deposito_id"] == os_row["deposito_id"]) &
+        (operadores_ativos["operador_id"] != operador["id"])
     ]
     custo_congestao = len(mesmo_deposito) * 60
 
@@ -146,6 +166,7 @@ def calcular_score(operador, os_row, baseline, operadores):
 
 def sugerir_atribuicoes():
     operadores   = buscar_operadores()
+    operadores_ativos   = buscar_operadores_ativos()
     baseline     = buscar_baseline()
     os_pendentes = buscar_os_pendentes()
 
@@ -159,7 +180,7 @@ def sugerir_atribuicoes():
             if operador["deposito_id"] != os_row["deposito_id"]:
                 continue
 
-            score = calcular_score(operador, os_row, baseline, operadores)
+            score = calcular_score(operador, os_row, baseline, operadores_ativos)
             scores_os.append(score)
 
         if scores_os:
