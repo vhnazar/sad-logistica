@@ -1,10 +1,21 @@
 import os
-import psycopg as psycopg2
 import pandas as pd
 from sqlalchemy import create_engine
+from urllib.parse import quote_plus
+from dotenv import load_dotenv
+
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+load_dotenv(os.path.join(BASE_DIR, ".env"))
+
+DB_USER = os.getenv("DB_USER", "postgres")
+DB_PASSWORD = quote_plus(os.getenv("DB_PASSWORD", ""))
+DB_HOST = os.getenv("DB_HOST", "localhost")
+DB_PORT = os.getenv("DB_PORT", "5433")
+DB_NAME = os.getenv("DB_NAME", "sad_logistica")
 
 engine = create_engine(
-    f"postgresql+psycopg://{os.getenv('DB_USER', 'postgres')}:{os.getenv('DB_PASSWORD')}@{os.getenv('DB_HOST', 'localhost')}:{os.getenv('DB_PORT', '5433')}/{os.getenv('DB_NAME', 'sad_logistica')}"
+    f"postgresql+psycopg2://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
 )
 
 def buscar_operadores():
