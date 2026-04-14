@@ -78,8 +78,8 @@ def buscar_os_pendentes():
     return pd.read_sql_query(query, engine)
 
 def buscar_operadores_ativos():
-	query = """
-		SELECT 
+    query = """
+        SELECT
             ex.operador_id,
             op.nome,
             ex.os_id,
@@ -95,8 +95,8 @@ def buscar_operadores_ativos():
         JOIN enderecos ed  ON ed.id = oi.endereco_id
         JOIN operadores op ON op.id = ex.operador_id
         GROUP BY ex.operador_id, op.nome, ex.os_id
-	"""
-	return pd.read_sql_query(query, engine)
+    """
+    return pd.read_sql_query(query, engine)
 
 def calcular_distancia(op, os):
     """
