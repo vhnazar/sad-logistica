@@ -150,6 +150,8 @@ def calcular_score(operador, os_row, baseline, operadores_ativos):
         tempo_base = fallback if not pd.isna(fallback) else baseline["tempo_medio"].mean()
     else:
         tempo_base = historico["tempo_medio"].values[0]
+        if  pd.isna(tempo_base):
+            tempo_base = baseline["tempo_medio"].mean()
 
     # 2. Custo de distância entre operador e OS
     custo_distancia = calcular_distancia(operador, os_row)
@@ -172,12 +174,23 @@ def calcular_score(operador, os_row, baseline, operadores_ativos):
         "operador_nome":    operador["nome"],
         "os_id":            os_row["os_id"],
         "tipo_os":          os_row["tipo_os"],
-        "tempo_base_seg":   round(tempo_base, 1),
+        "tempo_base_seg":   int(round(tempo_base, 1)),
         "custo_distancia":  round(custo_distancia, 2),
         "custo_congestao":  custo_congestao,
         "score":            round(score, 1)
     }
 
+def formatar_tempo(segundos):
+    # Formata segundos em h/m/s
+    horas = segundos // 3600
+    minutos = (segundos % 3600) // 60
+    seg = segundos % 60
+
+    if horas:
+        return f"{horas}h {minutos}m {seg}s"
+    if minutos:
+        return f"{minutos}m {seg}s"
+    return f"{seg}s"
 
 def sugerir_atribuicoes():
     operadores   = buscar_operadores()
@@ -218,5 +231,22 @@ def sugerir_atribuicoes():
 
 # Executa
 sugestoes = sugerir_atribuicoes()
+
+sugestoes["tempo_base_formatado"] = sugestoes["tempo_base_seg"].apply(formatar_tempo)
+
+# Reordena colunas
+sugestoes = sugestoes[[
+    "operador_id",
+    "operador_nome",
+    "os_id",
+    "tipo_os",
+    "tempo_base_seg",
+    "tempo_base_formatado",
+    "custo_distancia",
+    "custo_congestao",
+    "score",
+    "alternativa"
+]]
+
 print("\n=== SUGESTÕES DE ATRIBUIÇÃO ===\n")
 print(sugestoes.to_string(index=False))
