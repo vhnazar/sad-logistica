@@ -5,14 +5,18 @@ from urllib.parse import quote_plus
 from dotenv import load_dotenv
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-
 load_dotenv(os.path.join(BASE_DIR, ".env"))
 
-DB_USER = os.getenv("DB_USER", "postgres")
-DB_PASSWORD = quote_plus(os.getenv("DB_PASSWORD", ""))
-DB_HOST = os.getenv("DB_HOST", "localhost")
-DB_PORT = os.getenv("DB_PORT", "5433")
-DB_NAME = os.getenv("DB_NAME", "sad_logistica")
+DB_USER = os.getenv("DB_USER")
+DB_PASSWORD = os.getenv("DB_PASSWORD")
+DB_HOST = os.getenv("DB_HOST")
+DB_PORT = os.getenv("DB_PORT")
+DB_NAME = os.getenv("DB_NAME")
+
+if not all([DB_USER, DB_PASSWORD, DB_HOST, DB_PORT, DB_NAME]):
+    raise ValueError("Variáveis de ambiente do banco não configuradas corretamente")
+
+DB_PASSWORD = quote_plus(DB_PASSWORD)
 
 engine = create_engine(
     f"postgresql+psycopg2://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
@@ -181,17 +185,23 @@ def sugerir_atribuicoes():
     baseline     = buscar_baseline()
     os_pendentes = buscar_os_pendentes()
 
+    alocados = set()  # Para rastrear operadores já alocados nesta rodada
     resultados = []
 
     for _, os_row in os_pendentes.iterrows():
         scores_os = []
 
         for _, operador in operadores.iterrows():
+            # Evita sugerir operador já alocado para outra OS
+            if operador["id"] in alocados:
+                continue
             # Só sugere operador compatível com o depósito da OS
             if operador["deposito_id"] != os_row["deposito_id"]:
                 continue
 
             score = calcular_score(operador, os_row, baseline, operadores_ativos)
+            if score is None:
+                continue
             scores_os.append(score)
 
         if scores_os:
@@ -201,6 +211,7 @@ def sugerir_atribuicoes():
                 scores_os[1]["operador_nome"] if len(scores_os) > 1 else "-"
             )
             resultados.append(melhor)
+            alocados.add(melhor["operador_id"])
 
     return pd.DataFrame(resultados)
 
