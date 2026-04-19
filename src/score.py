@@ -98,6 +98,7 @@ def buscar_operadores_ativos():
             ex.operador_id,
             op.nome,
             ex.os_id,
+            v.inicio,
             MAX(ed.deposito_id) AS deposito_id,
             AVG(ed.rua)         AS rua_media,
             AVG(ed.predio)      AS predio_media,
@@ -109,7 +110,7 @@ def buscar_operadores_ativos():
         JOIN os_itens oi   ON oi.os_id = ex.os_id
         JOIN enderecos ed  ON ed.id = oi.endereco_id
         JOIN operadores op ON op.id = ex.operador_id
-        GROUP BY ex.operador_id, op.nome, ex.os_id
+        GROUP BY ex.operador_id, op.nome, ex.os_id, v.inicio
 	"""
 	return pd.read_sql_query(query, engine)
 
@@ -164,7 +165,18 @@ def calcular_score(operador, os_row, baseline, operadores_ativos):
         (operadores_ativos["deposito_id"] == os_row["deposito_id"]) &
         (operadores_ativos["operador_id"] != operador["id"])
     ]
-    custo_congestao = len(mesmo_deposito) * 60
+    custo_congestao = 0
+    for _, op_ativo in mesmo_deposito.iterrows():
+        tempo_decorrido = (pd.Timestamp.now() - op_ativo["inicio"]).total_seconds()
+
+        hist_ativo = baseline[
+            (baseline["matricula"] == op_ativo["operador_id"]) &
+            (baseline["codigo_os"] == os_row["tipo_codigo"])
+        ]
+        tempo_medio_ativo = hist_ativo["tempo_medio"].values[0] if not hist_ativo.empty else tempo_base
+
+        tempo_restante = max(0, tempo_medio_ativo - tempo_decorrido)
+        custo_congestao += tempo_restante
 
     # Score final: menor = melhor atribuição
     score = tempo_base + custo_distancia + custo_congestao
@@ -229,7 +241,6 @@ def sugerir_atribuicoes():
     return pd.DataFrame(resultados)
 
 
-# Executa
 sugestoes = sugerir_atribuicoes()
 
 sugestoes["tempo_base_formatado"] = sugestoes["tempo_base_seg"].apply(formatar_tempo)
