@@ -92,6 +92,25 @@ def buscar_os_pendentes():
     """
     return pd.read_sql_query(query, engine)
 
+def buscar_itens_os_pendentes():
+    query = """
+        SELECT  o.id           AS os_id,
+                o.tipo_codigo,
+                ed.deposito_id,
+                oi.produto_id,
+                ed.rua,
+                ed.predio,
+                ed.nivel,
+                ed.apartamento
+        FROM os o
+        JOIN os_tipos ot ON ot.codigo = o.tipo_codigo
+        JOIN os_itens oi ON oi.os_id = o.id
+        JOIN enderecos ed ON ed.id = oi.endereco_id
+        WHERE o.status = 'pendente'
+        ORDER BY o.id, ed.rua, ed.predio, ed.nivel, ed.apartamento
+    """
+    return pd.read_sql_query(query, engine)
+
 def buscar_operadores_ativos():
 	query = """
 		SELECT 
@@ -115,6 +134,7 @@ def buscar_operadores_ativos():
 	return pd.read_sql_query(query, engine)
 
 def calcular_distancia(op, os):
+    # Mantida como referência, mas substituída por cálculo real de distância em segundos.
     """
     Distância ponderada entre posição do operador e centroide da OS.
     Pesos refletem o custo real de locomoção no armazém:
@@ -131,8 +151,45 @@ def calcular_distancia(op, os):
         abs(op["apto_media"]   - os["apto_media"])   * 0.2
     )
 
+def calcular_distancia_real(op, itens_da_os):
+    """
+    Calcula distância real em segundos entre operador e cada item da OS.
+    Velocidade: 1.3 m/s
+    Largura prédio: 2.3m | Corredor: 2.5m | Apartamento: 0.46m | Nível: 30s fixo
+    Limitação atual: "zig-zag" não implementado, ruas tratadas como custo fixo para contornar.
+    """
+    CUSTO_APTO   = 0.46 / 1.3   # segundos por apartamento
+    CUSTO_PREDIO = 2.3  / 1.3   # segundos por prédio
+    CUSTO_CORREDOR = 2.5 / 1.3  # segundos por travessia de rua
+    CUSTO_NIVEL  = 30           # segundos por nível
 
-def calcular_score(operador, os_row, baseline, operadores_ativos):
+    custo_total = 0
+
+    for _, item in itens_da_os.iterrows():
+        custo_apto   = abs(op["apto_media"]   - item["apartamento"]) * CUSTO_APTO
+        custo_predio = abs(op["predio_media"] - item["predio"])      * CUSTO_PREDIO
+        custo_nivel  = abs(op["nivel_media"]  - item["nivel"])       * CUSTO_NIVEL
+
+        if op["rua_media"] == item["rua"]:
+            custo_rua = 0
+        else:
+            ruas_entre   = abs(op["rua_media"] - item["rua"])
+            custo_rua    = ruas_entre * CUSTO_CORREDOR
+
+            # Prédios restantes na rua atual até o fim
+            predios_restantes = abs(op["predio_media"] - 5)  # 5 = último prédio
+            custo_rua += predios_restantes * CUSTO_PREDIO
+
+            # Prédios percorridos na rua destino até o item
+            predios_destino = abs(1 - item["predio"])  # 1 = entrada da rua destino
+            custo_rua += predios_destino * CUSTO_PREDIO
+
+        custo_item   = custo_apto + custo_predio + custo_nivel + custo_rua
+        custo_total += custo_item
+
+    return custo_total
+
+def calcular_score(operador, os_row, itens_da_os, baseline, operadores_ativos):
     # 1. Tempo base do operador para esse tipo de OS
     filtro = (
         (baseline["matricula"] == operador["id"]) &
@@ -155,12 +212,13 @@ def calcular_score(operador, os_row, baseline, operadores_ativos):
             tempo_base = baseline["tempo_medio"].mean()
 
     # 2. Custo de distância entre operador e OS
-    custo_distancia = calcular_distancia(operador, os_row)
+    custo_distancia = calcular_distancia_real(operador, itens_da_os)
 
     # 3. Custo de congestionamento
     # Conta operadores no mesmo depósito (mesma zona)
-    # O custo de congestão usa a vw_operadores_ativos para considerar execuções em andamento. Mas nos dados sintéticos todas as execuções estão finalizadas, então ele usa a tabela operadores e pega os dados como proxy.
-    # Cada operador adicional representa ~60s de atraso esperado
+    # O custo de congestão usa a vw_operadores_ativos para considerar execuções em andamento.
+    # Nos dados sintéticos os inícios são antigos, então tempo_restante resulta em 0.
+    # Em produção reflete o tempo estimado restante de cada operador ativo na zona.
     mesmo_deposito = operadores_ativos[
         (operadores_ativos["deposito_id"] == os_row["deposito_id"]) &
         (operadores_ativos["operador_id"] != operador["id"])
@@ -193,7 +251,6 @@ def calcular_score(operador, os_row, baseline, operadores_ativos):
     }
 
 def formatar_tempo(segundos):
-    # Formata segundos em h/m/s
     horas = segundos // 3600
     minutos = (segundos % 3600) // 60
     seg = segundos % 60
@@ -209,11 +266,15 @@ def sugerir_atribuicoes():
     operadores_ativos   = buscar_operadores_ativos()
     baseline     = buscar_baseline()
     os_pendentes = buscar_os_pendentes()
+    itens_os_pendentes = buscar_itens_os_pendentes()
 
     alocados = set()  # Para rastrear operadores já alocados nesta rodada
     resultados = []
 
     for _, os_row in os_pendentes.iterrows():
+        itens_da_os = itens_os_pendentes[
+            itens_os_pendentes["os_id"] == os_row["os_id"]
+            ]
         scores_os = []
 
         for _, operador in operadores.iterrows():
@@ -224,7 +285,7 @@ def sugerir_atribuicoes():
             if operador["deposito_id"] != os_row["deposito_id"]:
                 continue
 
-            score = calcular_score(operador, os_row, baseline, operadores_ativos)
+            score = calcular_score(operador, os_row, itens_da_os, baseline, operadores_ativos)
             if score is None:
                 continue
             scores_os.append(score)
@@ -245,7 +306,6 @@ sugestoes = sugerir_atribuicoes()
 
 sugestoes["tempo_base_formatado"] = sugestoes["tempo_base_seg"].apply(formatar_tempo)
 
-# Reordena colunas
 sugestoes = sugestoes[[
     "operador_id",
     "operador_nome",
