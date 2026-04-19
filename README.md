@@ -41,7 +41,8 @@ sad-logistica/
 │   └── 02_motor_de_score.ipynb       # Em desenvolvimento
 │
 └── src/
-    └── score.py                      # Motor de score v1
+    ├── config.py                     # Configurações físicas do armazém
+    └── score.py                      # Motor de score v4
 ```
 
 ---
@@ -78,7 +79,7 @@ Produtos sem dados do fabricante recebem valor padrão (0.2) com flag `dado_prov
 
 ---
 
-## Motor de Score (v1)
+## Motor de Score (v4)
 
 Para cada combinação `(operador, OS pendente)`, o motor calcula:
 
@@ -86,20 +87,16 @@ Para cada combinação `(operador, OS pendente)`, o motor calcula:
 score = tempo_base + custo_distancia + custo_congestao
 ```
 
-**tempo_base** - média histórica do operador para aquele tipo de OS. Se o operador nunca executou aquele tipo, usa a média dos operadores que já fizeram (fallback). Se ninguém fez, usa a média geral.
+**tempo_base** — média histórica do operador para aquele tipo de OS. Fallback para média do tipo se o operador nunca executou aquele tipo, ou média geral se ninguém executou.
 
-**custo_distancia** - distância ponderada entre posição estimada do operador e centroide da OS:
-```
-abs(rua_a - rua_b)    * 3   +
-abs(predio_a - predio_b) * 2   +
-abs(nivel_a - nivel_b)   * 1   +
-abs(apto_a - apto_b)     * 0.2
-```
-Os pesos refletem o custo real de locomoção - mudar de rua é mais custoso que mudar de apartamento.
+**custo_distancia** — tempo real de deslocamento em segundos, calculado item a item com base nas dimensões físicas do armazém (configuráveis em `config.py`). Considera largura de prédios, corredores, apartamentos e custo fixo por nível de rack.
 
-**custo_congestao** - número de operadores ativos na mesma zona × 60 segundos. Em produção usa `vw_operadores_ativos`. Nos dados sintéticos usa todos os operadores do depósito como proxy.
+**custo_congestao** — soma do tempo restante estimado de cada operador ativo na mesma zona. Calculado com base no tempo decorrido desde o início da execução ativa versus o tempo médio histórico do operador.
 
-A atribuição sugerida é a de **menor score**, com alternativa apresentada.
+Regras adicionais:
+- Um operador só pode ser sugerido para uma OS por rodada
+- Operadores de depósito incompatível com o tipo de OS são automaticamente excluídos
+- A sugestão inclui uma alternativa caso o gestor queira substituir
 
 ---
 
@@ -134,6 +131,7 @@ Separação Carrinho Fracionado representa ~40% do volume, seguida de Paletizado
 - **Custo de congestionamento** — em produção precisa de execuções ativas reais
 - **Causalidade vs correlação** — o modelo detecta padrões, mas não isola causa com certeza
 - **Sistema sugestivo** — não substitui o julgamento do gestor operacional
+- **Roteamento simplificado** — o custo de travessia entre ruas não considera o zig-zag completo. O operador percorre os prédios restantes da rua atual e os prédios até o destino na rua final, mas ruas intermediárias são contadas apenas pelo corredor de travessia, não pelo percurso completo.
 
 ---
 
@@ -197,11 +195,15 @@ python src/score.py
 - [x] Análise exploratória completa
 - [x] Motor de score v1 (tempo base + distância + congestionamento)
 
-### Fase 2 — Motor de score melhorado (em desenvolvimento)
-- [ ] Usar `vw_operadores_ativos` para congestionamento real
-- [ ] Considerar tempo estimado de chegada na zona
-- [ ] Calibrar pesos da função de distância com dados reais
+### Fase 2 — Motor de score melhorado (concluída)
+- [x] Congestionamento dinâmico com vw_operadores_ativos
+- [x] Distância real por item com dimensões físicas do armazém
+- [x] Alocação única por rodada
+- [x] Apresentação de tempo em formato legível
+- [x] Configurações do armazém externalizadas em config.py
 - [ ] Notebook documentado do motor de score
+- [ ] Otimização: pular ruas sem itens no cálculo de travessia
+- [ ] Otimização: incluir custo de ruas intermediárias com itens no cálculo de travessia
 
 ### Fase 3 — Interface
 - [ ] Dashboard de indicadores operacionais

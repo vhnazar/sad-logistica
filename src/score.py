@@ -3,6 +3,7 @@ import pandas as pd
 from sqlalchemy import create_engine
 from urllib.parse import quote_plus
 from dotenv import load_dotenv
+from config import WAREHOUSE_LAYOUT
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 load_dotenv(os.path.join(BASE_DIR, ".env"))
@@ -157,11 +158,12 @@ def calcular_distancia_real(op, itens_da_os):
     Velocidade: 1.3 m/s
     Largura prédio: 2.3m | Corredor: 2.5m | Apartamento: 0.46m | Nível: 30s fixo
     Limitação atual: "zig-zag" não implementado, ruas tratadas como custo fixo para contornar.
-    """
-    CUSTO_APTO   = 0.46 / 1.3   # segundos por apartamento
-    CUSTO_PREDIO = 2.3  / 1.3   # segundos por prédio
-    CUSTO_CORREDOR = 2.5 / 1.3  # segundos por travessia de rua
-    CUSTO_NIVEL  = 30           # segundos por nível
+    """        
+
+    CUSTO_APTO     = WAREHOUSE_LAYOUT["largura_apto_m"]     / WAREHOUSE_LAYOUT["velocidade_ms"] # segundos por apartamento
+    CUSTO_PREDIO   = WAREHOUSE_LAYOUT["largura_predio_m"]   / WAREHOUSE_LAYOUT["velocidade_ms"] # segundos por prédio
+    CUSTO_CORREDOR = WAREHOUSE_LAYOUT["largura_corredor_m"] / WAREHOUSE_LAYOUT["velocidade_ms"] # segundos por travessia de rua
+    CUSTO_NIVEL    = WAREHOUSE_LAYOUT["custo_nivel_seg"] # segundos por nível
 
     custo_total = 0
 
