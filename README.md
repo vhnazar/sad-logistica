@@ -195,15 +195,15 @@ python src/score.py
 - [x] Análise exploratória completa
 - [x] Motor de score v1 (tempo base + distância + congestionamento)
 
-### Fase 2 — Motor de score melhorado (concluída)
+### Fase 2 — Motor de score melhorado (em andamento)
 - [x] Congestionamento dinâmico com vw_operadores_ativos
 - [x] Distância real por item com dimensões físicas do armazém
 - [x] Alocação única por rodada
 - [x] Apresentação de tempo em formato legível
 - [x] Configurações do armazém externalizadas em config.py
 - [ ] Notebook documentado do motor de score
-- [ ] Otimização: pular ruas sem itens no cálculo de travessia
-- [ ] Otimização: incluir custo de ruas intermediárias com itens no cálculo de travessia
+- [x] Otimização: incluir custo de ruas intermediárias com itens no cálculo de travessia
+- [x] Otimização: pular ruas sem itens no cálculo de travessia
 
 ### Fase 3 — Interface
 - [ ] Dashboard de indicadores operacionais

@@ -154,40 +154,54 @@ def calcular_distancia(op, os):
 
 def calcular_distancia_real(op, itens_da_os):
     """
-    Calcula distância real em segundos entre operador e cada item da OS.
+    Calcula distância real em segundos percorrendo as ruas continuamente.
     Velocidade: 1.3 m/s
     Largura prédio: 2.3m | Corredor: 2.5m | Apartamento: 0.46m | Nível: 30s fixo
-    Limitação atual: "zig-zag" não implementado, ruas tratadas como custo fixo para contornar.
-    """        
+    Ruas sem itens: só custo de travessia do corredor.
+    Ruas com itens: percorre prédios até cada item e coleta.
+    Após último item de cada rua: percorre até o final da rua para sair.
+    """
+    CUSTO_APTO      = WAREHOUSE_LAYOUT["largura_apto_m"]     / WAREHOUSE_LAYOUT["velocidade_ms"]
+    CUSTO_PREDIO    = WAREHOUSE_LAYOUT["largura_predio_m"]   / WAREHOUSE_LAYOUT["velocidade_ms"]
+    CUSTO_CORREDOR  = WAREHOUSE_LAYOUT["largura_corredor_m"] / WAREHOUSE_LAYOUT["velocidade_ms"]
+    CUSTO_NIVEL     = WAREHOUSE_LAYOUT["custo_nivel_seg"]
+    PREDIOS_POR_RUA = WAREHOUSE_LAYOUT["predios_por_rua"]
 
-    CUSTO_APTO     = WAREHOUSE_LAYOUT["largura_apto_m"]     / WAREHOUSE_LAYOUT["velocidade_ms"] # segundos por apartamento
-    CUSTO_PREDIO   = WAREHOUSE_LAYOUT["largura_predio_m"]   / WAREHOUSE_LAYOUT["velocidade_ms"] # segundos por prédio
-    CUSTO_CORREDOR = WAREHOUSE_LAYOUT["largura_corredor_m"] / WAREHOUSE_LAYOUT["velocidade_ms"] # segundos por travessia de rua
-    CUSTO_NIVEL    = WAREHOUSE_LAYOUT["custo_nivel_seg"] # segundos por nível
+    rua_op         = round(op["rua_media"])
+    ruas_com_itens = set(itens_da_os["rua"].unique())
+    rua_min        = min(rua_op, int(itens_da_os["rua"].min()))
+    rua_max        = max(rua_op, int(itens_da_os["rua"].max()))
 
     custo_total = 0
 
-    for _, item in itens_da_os.iterrows():
-        custo_apto   = abs(op["apto_media"]   - item["apartamento"]) * CUSTO_APTO
-        custo_predio = abs(op["predio_media"] - item["predio"])      * CUSTO_PREDIO
-        custo_nivel  = abs(op["nivel_media"]  - item["nivel"])       * CUSTO_NIVEL
+    for rua in range(rua_min, rua_max + 1):
+        if rua == rua_op:
+            # Já está nessa rua — usa posição real do operador como referência
+            itens_desta_rua = itens_da_os[itens_da_os["rua"] == rua]
+            for _, item in itens_desta_rua.iterrows():
+                custo_total += abs(op["predio_media"] - item["predio"]) * CUSTO_PREDIO
+                custo_total += abs(op["apto_media"]   - item["apartamento"]) * CUSTO_APTO
+                custo_total += abs(op["nivel_media"]  - item["nivel"]) * CUSTO_NIVEL
+            # sai da rua pelo final
+            if len(itens_desta_rua) > 0:
+                ultimo_predio = itens_desta_rua["predio"].max()
+                custo_total += abs(PREDIOS_POR_RUA - ultimo_predio) * CUSTO_PREDIO
 
-        if op["rua_media"] == item["rua"]:
-            custo_rua = 0
+        elif rua in ruas_com_itens:
+            # Entra na rua pelo corredor e percorre até cada item
+            custo_total += CUSTO_CORREDOR
+            itens_desta_rua = itens_da_os[itens_da_os["rua"] == rua]
+            for _, item in itens_desta_rua.iterrows():
+                custo_total += abs(1 - item["predio"]) * CUSTO_PREDIO
+                custo_total += abs(item["apartamento"]) * CUSTO_APTO
+                custo_total += abs(item["nivel"]) * CUSTO_NIVEL
+            # sai da rua pelo final
+            ultimo_predio = itens_desta_rua["predio"].max()
+            custo_total += abs(PREDIOS_POR_RUA - ultimo_predio) * CUSTO_PREDIO
+
         else:
-            ruas_entre   = abs(op["rua_media"] - item["rua"])
-            custo_rua    = ruas_entre * CUSTO_CORREDOR
-
-            # Prédios restantes na rua atual até o fim
-            predios_restantes = abs(op["predio_media"] - 5)  # 5 = último prédio
-            custo_rua += predios_restantes * CUSTO_PREDIO
-
-            # Prédios percorridos na rua destino até o item
-            predios_destino = abs(1 - item["predio"])  # 1 = entrada da rua destino
-            custo_rua += predios_destino * CUSTO_PREDIO
-
-        custo_item   = custo_apto + custo_predio + custo_nivel + custo_rua
-        custo_total += custo_item
+            # Sem itens — só atravessa o corredor
+            custo_total += CUSTO_CORREDOR
 
     return custo_total
 
