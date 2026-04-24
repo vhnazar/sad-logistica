@@ -197,14 +197,14 @@ python src/score.py
 - [x] Análise exploratória completa
 - [x] Motor de score v1 (tempo base + distância + congestionamento)
 
-### Fase 2 - Motor de score melhorado (em andamento)
+### Fase 2 — Motor de score melhorado (concluída)
 - [x] Congestionamento dinâmico com vw_operadores_ativos
 - [x] Distância real por item com dimensões físicas do armazém
 - [x] Roteamento contínuo rua a rua com custo de travessia real
 - [x] Alocação única por rodada
 - [x] Apresentação de tempo em formato legível
 - [x] Configurações do armazém externalizadas em config.py
-- [ ] Notebook documentado do motor de score
+- [x] Notebook documentado do motor de score
 
 ### Fase 3 - Interface
 - [ ] Dashboard de indicadores operacionais
