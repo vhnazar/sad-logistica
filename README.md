@@ -1,4 +1,4 @@
-# SAD — Sistema de Apoio à Decisão para Logística Interna
+# SAD - Sistema de Apoio à Decisão para Logística Interna
 
 > Projeto em desenvolvimento - modelagem, análise exploratória e motor de decisão para otimização de picking em armazéns.
 
@@ -38,11 +38,11 @@ sad-logistica/
 │
 ├── notebooks/
 │   ├── 01_analise_exploratoria.ipynb # EDA completa
-│   └── 02_motor_de_score.ipynb       # Em desenvolvimento
+│   └── 02_motor_de_score.ipynb       # Demonstração do motor de score
 │
 └── src/
     ├── config.py                     # Configurações físicas do armazém
-    └── score.py                      # Motor de score v4
+    └── score.py                      # Motor de score v5
 ```
 
 ---
@@ -79,7 +79,7 @@ Produtos sem dados do fabricante recebem valor padrão (0.2) com flag `dado_prov
 
 ---
 
-## Motor de Score (v4)
+## Motor de Score (v5)
 
 Para cada combinação `(operador, OS pendente)`, o motor calcula:
 
@@ -87,11 +87,14 @@ Para cada combinação `(operador, OS pendente)`, o motor calcula:
 score = tempo_base + custo_distancia + custo_congestao
 ```
 
-**tempo_base** — média histórica do operador para aquele tipo de OS. Fallback para média do tipo se o operador nunca executou aquele tipo, ou média geral se ninguém executou.
+**tempo_base** - média histórica do operador para aquele tipo de OS. Fallback para média do tipo se o operador nunca executou aquele tipo, ou média geral se ninguém executou.
 
-**custo_distancia** — tempo real de deslocamento em segundos, calculado item a item com base nas dimensões físicas do armazém (configuráveis em `config.py`). Considera largura de prédios, corredores, apartamentos e custo fixo por nível de rack.
+**custo_distancia** - tempo real de deslocamento em segundos, calculado com roteamento contínuo rua a rua:
+- Ruas com itens: percorre os prédios até cada item e sai pelo final da rua
+- Ruas sem itens: apenas o custo de travessia do corredor
+- Dimensões físicas configuráveis em `config.py` (largura de prédios, corredores, apartamentos, custo por nível)
 
-**custo_congestao** — soma do tempo restante estimado de cada operador ativo na mesma zona. Calculado com base no tempo decorrido desde o início da execução ativa versus o tempo médio histórico do operador.
+**custo_congestao** - soma do tempo restante estimado de cada operador ativo na mesma zona. Calculado com base no tempo decorrido desde o início da execução ativa versus o tempo médio histórico do operador.
 
 Regras adicionais:
 - Um operador só pode ser sugerido para uma OS por rodada
@@ -126,23 +129,23 @@ Separação Carrinho Fracionado representa ~40% do volume, seguida de Paletizado
 
 ## Limitações do modelo
 
-- **Dados sintéticos** — padrões são controlados, não descobertos organicamente
-- **Posição estimada** — sem rastreamento em tempo real, usa centroide da última OS como proxy
-- **Custo de congestionamento** — em produção precisa de execuções ativas reais
-- **Causalidade vs correlação** — o modelo detecta padrões, mas não isola causa com certeza
-- **Sistema sugestivo** — não substitui o julgamento do gestor operacional
-- **Roteamento simplificado** — o custo de travessia entre ruas não considera o zig-zag completo. O operador percorre os prédios restantes da rua atual e os prédios até o destino na rua final, mas ruas intermediárias são contadas apenas pelo corredor de travessia, não pelo percurso completo.
+- **Dados sintéticos** - padrões são controlados, não descobertos organicamente
+- **Posição estimada** - sem rastreamento em tempo real, usa centroide da última OS como proxy
+- **Custo de congestionamento** - em produção precisa de execuções ativas reais
+- **Causalidade vs correlação** - o modelo detecta padrões, mas não isola causa com certeza
+- **Sistema sugestivo** - não substitui o julgamento do gestor operacional
+- **Restrição de nível por tipo de operador** - o modelo não restringe operadores de separação fracionada (solo) de receberem OS com itens em níveis elevados. Em produção essa regra deve ser implementada no filtro de compatibilidade de depósito.
 
 ---
 
 ## Tecnologias
 
-- **PostgreSQL** — banco de dados relacional
-- **Python** — geração de dados, análise e motor de score
-- **pandas** — manipulação de dados
-- **matplotlib / seaborn** — visualizações
-- **SQLAlchemy / psycopg** — conexão Python <-> PostgreSQL
-- **Jupyter Notebook** — análise exploratória documentada
+- **PostgreSQL** - banco de dados relacional
+- **Python** - geração de dados, análise e motor de score
+- **pandas** - manipulação de dados
+- **matplotlib / seaborn** - visualizações
+- **SQLAlchemy / psycopg** - conexão Python ↔ PostgreSQL
+- **Jupyter Notebook** - análise exploratória documentada
 
 ---
 
@@ -156,18 +159,17 @@ psql -U postgres -d sad_logistica -f schema.sql
 
 ### 2. Dependências Python
 ```bash
-pip install psycopg[binary] pandas matplotlib seaborn sqlalchemy faker jupyter
+pip install psycopg[binary] pandas matplotlib seaborn sqlalchemy faker jupyter python-dotenv
 ```
 
 ### 3. Variáveis de ambiente
-```bash
-# Windows
-set DB_PASSWORD=sua_senha
-set DB_PORT=5433
-
-# Linux/Mac
-export DB_PASSWORD=sua_senha
-export DB_PORT=5433
+Crie um arquivo `.env` na raiz do projeto:
+```
+DB_USER=postgres
+DB_PASSWORD=sua_senha
+DB_HOST=localhost
+DB_PORT=5433
+DB_NAME=sad_logistica
 ```
 
 ### 4. Gerar dados sintéticos
@@ -189,23 +191,22 @@ python src/score.py
 
 ## Roadmap
 
-### Fase 1 — Fundação (concluída)
+### Fase 1 - Fundação (concluída)
 - [x] Modelagem do banco de dados
 - [x] Geração de dados sintéticos com problemas de qualidade propositais
 - [x] Análise exploratória completa
 - [x] Motor de score v1 (tempo base + distância + congestionamento)
 
-### Fase 2 — Motor de score melhorado (em andamento)
+### Fase 2 - Motor de score melhorado (em andamento)
 - [x] Congestionamento dinâmico com vw_operadores_ativos
 - [x] Distância real por item com dimensões físicas do armazém
+- [x] Roteamento contínuo rua a rua com custo de travessia real
 - [x] Alocação única por rodada
 - [x] Apresentação de tempo em formato legível
 - [x] Configurações do armazém externalizadas em config.py
 - [ ] Notebook documentado do motor de score
-- [x] Otimização: incluir custo de ruas intermediárias com itens no cálculo de travessia
-- [x] Otimização: pular ruas sem itens no cálculo de travessia
 
-### Fase 3 — Interface
+### Fase 3 - Interface
 - [ ] Dashboard de indicadores operacionais
   - Tempo médio por operador e tipo de OS
   - Taxa de reatribuição
@@ -213,7 +214,7 @@ python src/score.py
   - Zonas mais congestionadas
 - [ ] Página interativa de sugestão de atribuição
 
-### Fase 4 — Modelo preditivo
+### Fase 4 - Modelo preditivo
 - [ ] Regressão linear como baseline
 - [ ] Random Forest para capturar não-linearidades
 - [ ] Avaliação e comparação de modelos
