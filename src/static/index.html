@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SAD - Logística</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+    <!-- MENU LATERAL -->
+    <nav id="sidebar">
+        <div id="sidebar-logo">
+            <span>SAD</span>
+            <small>Logística</small>
+        </div>
+
+        <ul id="sidebar-menu">
+            <li class="menu-grupo">
+                <span class="menu-grupo-label">Logística</span>
+                <ul>
+                    <li>
+                        <a href="#" class="menu-item ativo" data-pagina="lista-os">
+                            Gerenciador de OS
+                        </a>
+                    </li>
+                    <li>
+                        <a href="#" class="menu-item" data-pagina="mapa">
+                            Mapa de Congestionamento
+                        </a>
+                    </li>
+                    <li>
+                        <a href="#" class="menu-item" data-pagina="configuracao">
+                            Configuração de Atribuição
+                        </a>
+                    </li>
+                    <li>
+                        <a href="#" class="menu-item" data-pagina="atribuicao">
+                            Painel de Atribuição
+                        </a>
+                    </li>
+                </ul>
+            </li>
+        </ul>
+    </nav>
+
+    <!-- CONTEÚDO PRINCIPAL -->
+    <main id="conteudo">
+
+        <!-- cada aba é um div, só um fica visível por vez -->
+        <section id="pagina-lista-os" class="pagina ativa"></section>
+        <section id="pagina-mapa" class="pagina"></section>
+        <section id="pagina-configuracao" class="pagina"></section>
+        <section id="pagina-atribuicao" class="pagina"></section>
+
+    </main>
+
+    <!-- SCRIPTS -->
+    <script src="/static/modules/lista_os.js"></script>
+    <script src="/static/modules/mapa.js"></script>
+    <script src="/static/modules/configuracao.js"></script>
+    <script src="/static/modules/atribuicao.js"></script>
+    <script src="/static/app.js"></script>
+
+</body>
+</html>
