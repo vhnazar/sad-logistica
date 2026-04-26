@@ -273,3 +273,36 @@ JOIN os_tipos ot   ON ot.codigo = os.tipo_codigo
 WHERE ex.status = 'finalizada'
   AND ex.tempo_segundos IS NOT NULL
 GROUP BY ex.operador_id, op.nome, ot.codigo, ot.descricao;
+
+
+-- -------------------------------------------------------------
+-- 10. RESERVAS DE OS
+-- Controla OS reservadas para operadores específicos pelo gestor
+-- Uma OS só pode ter uma reserva ativa por vez
+-- Reservas não bloqueiam a OS — apenas a identificam como reservada
+-- e a excluem do escopo de sugestão automática
+-- -------------------------------------------------------------
+CREATE TABLE os_reservas (
+  id            SERIAL PRIMARY KEY,
+  os_id         INT NOT NULL REFERENCES os(id),
+  operador_id   INT NOT NULL REFERENCES operadores(id),
+  reservado_em  TIMESTAMP NOT NULL DEFAULT NOW(),
+  expira_em     TIMESTAMP,
+  reservado_por TEXT,
+  ativo         BOOLEAN NOT NULL DEFAULT TRUE,
+
+  UNIQUE (os_id, ativo)
+);
+
+-- View para facilitar consulta de reservas ativas
+CREATE VIEW vw_os_reservadas AS
+SELECT
+  r.os_id,
+  r.operador_id,
+  op.nome AS operador_nome,
+  r.reservado_em,
+  r.expira_em,
+  r.reservado_por
+FROM os_reservas r
+JOIN operadores op ON op.id = r.operador_id
+WHERE r.ativo = TRUE;
