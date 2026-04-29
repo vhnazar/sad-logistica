@@ -1,4 +1,3 @@
-// modules/lista_os.js
 // Responsável por carregar e renderizar a lista de OS pendentes e em andamento
 
 // Variável que guarda as OS carregadas - evita buscar de novo desnecessariamente

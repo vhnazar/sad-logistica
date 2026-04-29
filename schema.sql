@@ -279,7 +279,7 @@ GROUP BY ex.operador_id, op.nome, ot.codigo, ot.descricao;
 -- 10. RESERVAS DE OS
 -- Controla OS reservadas para operadores específicos pelo gestor
 -- Uma OS só pode ter uma reserva ativa por vez
--- Reservas não bloqueiam a OS — apenas a identificam como reservada
+-- Reservas não bloqueiam a OS - apenas a identificam como reservada
 -- e a excluem do escopo de sugestão automática
 -- -------------------------------------------------------------
 CREATE TABLE os_reservas (
@@ -306,3 +306,56 @@ SELECT
 FROM os_reservas r
 JOIN operadores op ON op.id = r.operador_id
 WHERE r.ativo = TRUE;
+
+
+-- Mapa de congestionamento por zona
+-- Agrupa operadores ativos por rua e prédio para o heatmap
+CREATE VIEW vw_mapa_congestionamento AS
+WITH execucao_ativa AS (
+    SELECT DISTINCT ON (ex.operador_id)
+        ex.operador_id,
+        ex.os_id,
+        ex.inicio
+    FROM execucoes ex
+    WHERE ex.status = 'ativa'
+    ORDER BY ex.operador_id, ex.inicio DESC
+),
+posicao_operadores AS (
+    SELECT
+        op.id,
+        op.nome,
+        ea.os_id,
+        ea.inicio,
+        ROUND(AVG(ed.rua))::INT    AS rua_media,
+        ROUND(AVG(ed.predio))::INT AS predio_media,
+        ed.deposito_id,
+        dep.nome AS deposito_nome
+    FROM operadores op
+    JOIN execucao_ativa ea ON ea.operador_id = op.id
+    JOIN os_itens oi       ON oi.os_id = ea.os_id
+    JOIN enderecos ed      ON ed.id = oi.endereco_id
+    JOIN depositos dep     ON dep.id = ed.deposito_id
+    WHERE op.ativo = TRUE
+    GROUP BY op.id, op.nome, ea.os_id, ea.inicio, ed.deposito_id, dep.nome
+)
+SELECT
+    deposito_id,
+    deposito_nome,
+    rua_media    AS rua,
+    predio_media AS predio,
+    COUNT(*)     AS total_operadores,
+    JSON_AGG(
+        JSON_BUILD_OBJECT(
+            'operador_id', id,
+            'nome', nome,
+            'os_id', os_id,
+            'deposito_id', deposito_id,
+            'tipo', deposito_nome,
+            'tempo_execucao_segundos',
+            EXTRACT(EPOCH FROM (NOW() - inicio))::INT,
+            'tempo_execucao',
+            TO_CHAR(NOW() - inicio, 'HH24:MI:SS')
+        )
+    ) AS operadores
+FROM posicao_operadores
+GROUP BY deposito_id, deposito_nome, rua_media, predio_media;

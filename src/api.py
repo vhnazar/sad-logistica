@@ -57,6 +57,44 @@ def get_os_reservadas():
         """))
         return [dict(row) for row in result]
 
+@app.get("/mapa/congestionamento")
+def get_mapa_congestionamento():
+    import json
+    with engine.begin() as conn:
+        result = conn.execute(text("""
+            SELECT * FROM vw_mapa_congestionamento
+        """))
+        rows = []
+        for row in result:
+            r = dict(row._mapping)
+            # operadores vem como string JSON do PostgreSQL, é necessário converter de volta para lista
+            if isinstance(r["operadores"], str):
+                r["operadores"] = json.loads(r["operadores"])
+            rows.append(r)
+        return rows
+
+@app.get("/mapa/dimensoes")
+def get_dimensoes():
+    with engine.begin() as conn:
+        result = conn.execute(text("""
+            SELECT 
+                deposito_id,
+                MAX(rua) AS max_rua,
+                MAX(predio) AS max_predio
+            FROM enderecos
+            GROUP BY deposito_id
+        """))
+
+        dados = []
+
+        for row in result:
+            dados.append({
+                "deposito_id": row.deposito_id,
+                "ruas": list(range(1, row.max_rua + 1)),
+                "predios": list(range(1, row.max_predio + 1))
+            })
+
+        return dados
 
 @app.post("/os/reservar")
 def reservar_os(req: ReservaRequest):

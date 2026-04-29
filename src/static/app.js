@@ -1,4 +1,3 @@
-// app.js
 // Navegação entre páginas via DOM e inicialização dos módulos
 
 document.addEventListener('DOMContentLoaded', () => {
