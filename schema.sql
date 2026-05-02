@@ -307,6 +307,62 @@ FROM os_reservas r
 JOIN operadores op ON op.id = r.operador_id
 WHERE r.ativo = TRUE;
 
+-- -------------------------------------------------------------
+-- 11. REGRAS DE ATRIBUIÇÃO AUTOMÁTICA
+-- Motor de regras configurável pelo gestor
+-- Condições armazenadas em JSONB para flexibilidade
+-- Suporta operadores: <, >, <=, >=, =, !=
+-- Suporta agrupamento: all (AND) e any (OR)
+-- -------------------------------------------------------------
+CREATE TABLE regras_atribuicao (
+  id            SERIAL PRIMARY KEY,
+  nome          TEXT NOT NULL,
+  ativo         BOOLEAN NOT NULL DEFAULT TRUE,
+  prioridade    INT NOT NULL DEFAULT 0,
+  modo          TEXT NOT NULL CHECK (modo IN ('fixo', 'automatico')),
+  operador_id   INT REFERENCES operadores(id),
+  condicoes     JSONB NOT NULL,
+  criado_em     TIMESTAMP NOT NULL DEFAULT NOW(),
+  atualizado_em TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+-- Index para busca eficiente nas regras ativas por prioridade
+CREATE INDEX idx_regras_ativas ON regras_atribuicao (ativo, prioridade DESC);
+
+
+-- -------------------------------------------------------------
+-- 12. PRESETS DE REGRAS
+-- Templates reutilizáveis pelo gestor para criar regras rapidamente
+-- -------------------------------------------------------------
+CREATE TABLE regras_presets (
+  id          SERIAL PRIMARY KEY,
+  nome        TEXT NOT NULL,
+  descricao   TEXT,
+  condicoes   JSONB NOT NULL,
+  modo        TEXT NOT NULL CHECK (modo IN ('fixo', 'automatico')),
+  criado_em   TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+INSERT INTO regras_presets (nome, descricao, condicoes, modo) VALUES
+(
+  'Score baixo - atribuição automática',
+  'Atribui automaticamente quando score é menor que 900',
+  '{"all": [{"campo": "score", "op": "<", "valor": 900}]}',
+  'automatico'
+),
+(
+  'Carrinho fracionado prioritário',
+  'Aplica para OS de separação carrinho com score baixo',
+  '{"all": [{"campo": "score", "op": "<", "valor": 1000}, {"campo": "tipo_os", "op": "=", "valor": "Separação Carrinho Fracionado"}]}',
+  'automatico'
+),
+(
+  'Paletizado - operador fixo',
+  'Reserva OS paletizadas para operador específico',
+  '{"all": [{"campo": "tipo_os", "op": "=", "valor": "Separação Paletizado Caixa Fechada"}]}',
+  'fixo'
+);
+
 
 -- Mapa de congestionamento por zona
 -- Agrupa operadores ativos por rua e prédio para o heatmap

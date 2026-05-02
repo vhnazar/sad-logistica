@@ -12,6 +12,7 @@ import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).parent))
 from score import sugerir_atribuicoes, buscar_operadores
+from regras import aplicar_regras
 
 load_dotenv(Path(__file__).parent.parent / ".env")
 
@@ -46,8 +47,8 @@ def index():
 @app.get("/os/pendentes")
 def get_os_pendentes():
     sugestoes = sugerir_atribuicoes()
-    return sugestoes.to_dict(orient="records")
-
+    resultado = aplicar_regras(sugestoes.to_dict(orient="records"), engine)
+    return resultado
 
 @app.get("/os/reservadas")
 def get_os_reservadas():
@@ -95,6 +96,76 @@ def get_dimensoes():
             })
 
         return dados
+
+@app.get("/regras")
+def get_regras():
+    with engine.begin() as conn:
+        result = conn.execute(text("""
+            SELECT r.*, op.nome AS operador_nome
+            FROM regras_atribuicao r
+            LEFT JOIN operadores op ON op.id = r.operador_id
+            ORDER BY r.prioridade DESC, r.criado_em DESC
+        """))
+        return [dict(row._mapping) for row in result]
+
+
+@app.get("/regras/presets")
+def get_presets():
+    with engine.begin() as conn:
+        result = conn.execute(text("""
+            SELECT * FROM regras_presets ORDER BY nome
+        """))
+        return [dict(row._mapping) for row in result]
+
+
+class RegraRequest(BaseModel):
+    nome: str
+    ativo: bool = True
+    prioridade: int = 0
+    modo: str
+    operador_id: int | None = None
+    condicoes: dict
+
+
+@app.post("/regras")
+def criar_regra(req: RegraRequest):
+    import json
+    with engine.begin() as conn:
+        result = conn.execute(text("""
+            INSERT INTO regras_atribuicao
+              (nome, ativo, prioridade, modo, operador_id, condicoes)
+            VALUES
+              (:nome, :ativo, :prioridade, :modo, :operador_id, :condicoes)
+            RETURNING id
+        """), {
+            "nome":        req.nome,
+            "ativo":       req.ativo,
+            "prioridade":  req.prioridade,
+            "modo":        req.modo,
+            "operador_id": req.operador_id,
+            "condicoes":   json.dumps(req.condicoes)
+        })
+        return {"sucesso": True, "id": result.fetchone()[0]}
+
+
+@app.patch("/regras/{regra_id}/ativo")
+def toggle_regra(regra_id: int, ativo: bool):
+    with engine.begin() as conn:
+        conn.execute(text("""
+            UPDATE regras_atribuicao
+            SET ativo = :ativo, atualizado_em = NOW()
+            WHERE id = :id
+        """), {"ativo": ativo, "id": regra_id})
+    return {"sucesso": True}
+
+
+@app.delete("/regras/{regra_id}")
+def deletar_regra(regra_id: int):
+    with engine.begin() as conn:
+        conn.execute(text("""
+            DELETE FROM regras_atribuicao WHERE id = :id
+        """), {"id": regra_id})
+    return {"sucesso": True}
 
 @app.post("/os/reservar")
 def reservar_os(req: ReservaRequest):

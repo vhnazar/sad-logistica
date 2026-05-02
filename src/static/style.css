@@ -1,4 +1,3 @@
-/* style.css */
 /* Reset e base */
 * {
     margin: 0;
@@ -645,3 +644,236 @@ body {
     border-top: 1px solid rgba(255,255,255,0.2);
     margin: 6px 0;
 }
+
+/* CONFIGURAÇÃO DE ATRIBUIÇÃO */
+
+.config-container { max-width: 900px; }
+
+.config-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 24px;
+}
+
+.config-header h1 { font-size: 22px; font-weight: 600; }
+
+.config-secao {
+    background: white;
+    border-radius: 10px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+    margin-bottom: 24px;
+    overflow: hidden;
+}
+
+.config-secao-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 20px;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.config-secao-header h2 { font-size: 15px; font-weight: 600; }
+
+.btn-nova-regra {
+    background: var(--cor-destaque);
+    color: white;
+    border: none;
+    padding: 7px 14px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 13px;
+    transition: opacity 0.2s;
+}
+
+.btn-nova-regra:hover { opacity: 0.85; }
+
+/* Cards de regra */
+.regra-card {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 20px;
+    border-bottom: 1px solid #f8f8f8;
+    transition: background 0.2s;
+}
+
+.regra-card:hover { background: #fafafa; }
+.regra-inativa { opacity: 0.5; }
+
+.regra-card-info { flex: 1; }
+
+.regra-nome {
+    font-size: 14px;
+    font-weight: 500;
+    margin-bottom: 4px;
+}
+
+.regra-meta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 6px;
+    font-size: 12px;
+    color: var(--cor-texto-claro);
+}
+
+.regra-prioridade { font-size: 11px; color: #aaa; }
+
+.regra-condicoes {
+    font-size: 11px;
+    color: var(--cor-texto-claro);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    align-items: center;
+}
+
+.condicao-tipo { font-weight: 500; }
+
+.condicao-tag {
+    background: #f0f4ff;
+    color: #3355cc;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 11px;
+}
+
+.regra-card-acoes {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.btn-deletar-regra {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 16px;
+    opacity: 0.4;
+    transition: opacity 0.2s;
+}
+
+.btn-deletar-regra:hover { opacity: 1; }
+
+/* Toggle switch */
+.toggle {
+    position: relative;
+    display: inline-block;
+    width: 40px;
+    height: 22px;
+}
+
+.toggle input { opacity: 0; width: 0; height: 0; }
+
+.toggle-slider {
+    position: absolute;
+    cursor: pointer;
+    inset: 0;
+    background: #ccc;
+    border-radius: 22px;
+    transition: 0.3s;
+}
+
+.toggle-slider:before {
+    content: '';
+    position: absolute;
+    width: 16px;
+    height: 16px;
+    left: 3px;
+    bottom: 3px;
+    background: white;
+    border-radius: 50%;
+    transition: 0.3s;
+}
+
+.toggle input:checked + .toggle-slider { background: var(--cor-destaque); }
+.toggle input:checked + .toggle-slider:before { transform: translateX(18px); }
+
+/* Presets */
+.preset-card {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 20px;
+    border-bottom: 1px solid #f8f8f8;
+}
+
+.preset-info { flex: 1; }
+
+.preset-nome {
+    font-size: 14px;
+    font-weight: 500;
+    margin-bottom: 2px;
+}
+
+.preset-descricao {
+    font-size: 12px;
+    color: var(--cor-texto-claro);
+    margin-bottom: 6px;
+}
+
+.btn-usar-preset {
+    background: none;
+    border: 1px solid var(--cor-destaque);
+    color: var(--cor-destaque);
+    padding: 6px 14px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 12px;
+    white-space: nowrap;
+    margin-left: 16px;
+    transition: all 0.2s;
+}
+
+.btn-usar-preset:hover {
+    background: var(--cor-destaque);
+    color: white;
+}
+
+/* Modal de regra */
+.modal-regra { width: 560px; }
+
+.regra-form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+}
+
+.condicao-row {
+    display: grid;
+    grid-template-columns: 1fr 80px 1fr 32px;
+    gap: 8px;
+    margin-bottom: 8px;
+    align-items: center;
+}
+
+.btn-add-condicao {
+    background: none;
+    border: 1px dashed #ccc;
+    color: var(--cor-texto-claro);
+    padding: 7px 14px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 12px;
+    width: 100%;
+    transition: all 0.2s;
+    margin-top: 4px;
+}
+
+.btn-add-condicao:hover {
+    border-color: var(--cor-destaque);
+    color: var(--cor-destaque);
+}
+
+.btn-remover-condicao {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: #ccc;
+    font-size: 14px;
+    transition: color 0.2s;
+}
+
+.btn-remover-condicao:hover { color: #c62828; }
