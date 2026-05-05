@@ -222,6 +222,34 @@ def get_operadores():
     ]].to_dict(orient="records")
 
 
+@app.get("/operadores/status")
+def get_operadores_status():
+    with engine.begin() as conn:
+        result = conn.execute(text("""
+            SELECT
+                op.id AS operador_id,
+                op.nome,
+                op.ativo,
+                CASE
+                    WHEN op.ativo = FALSE THEN 'deslogado'
+                    WHEN ea.operador_id IS NOT NULL THEN 'em_andamento'
+                    ELSE 'disponivel'
+                END AS status_operador,
+                ea.os_id AS os_ativa
+            FROM operadores op
+            LEFT JOIN (
+                SELECT DISTINCT ON (operador_id)
+                    operador_id,
+                    os_id
+                FROM execucoes
+                WHERE status = 'ativa'
+                ORDER BY operador_id, inicio DESC
+            ) ea ON ea.operador_id = op.id
+            ORDER BY op.nome
+        """))
+        return [dict(row._mapping) for row in result]
+
+
 @app.delete("/reservar/{os_id}")
 def cancelar_reserva(os_id: int):
     with engine.begin() as conn:
