@@ -1,6 +1,6 @@
 # SAD - Sistema de Apoio à Decisão para Logística Interna
 
-> Projeto em desenvolvimento - modelagem, análise exploratória e motor de decisão para otimização de picking em armazéns.
+> Projeto em desenvolvimento - modelagem, análise exploratória, motor de decisão e interface operacional para otimização de picking em armazéns.
 
 ---
 
@@ -21,7 +21,7 @@ O resultado são atrasos evitáveis, gargalos e uso ineficiente da equipe.
 
 Um **SAD (Sistema de Apoio à Decisão)** que, dado um conjunto de OS pendentes e operadores disponíveis, calcula um **score de atraso esperado** para cada combinação e sugere a atribuição que minimiza o tempo total da operação.
 
-O sistema **não decide automaticamente** - ele sugere com justificativa, mantendo o gestor no controle.
+O sistema **não decide automaticamente** - ele sugere com justificativa, mantendo o gestor no controle. A interface permite também atribuição manual com drag and drop e regras automáticas configuráveis.
 
 ---
 
@@ -42,7 +42,18 @@ sad-logistica/
 │
 └── src/
     ├── config.py                     # Configurações físicas do armazém
-    └── score.py                      # Motor de score v5
+    ├── score.py                      # Motor de score v5
+    ├── regras.py                     # Motor de avaliação de regras
+    ├── api.py                        # API FastAPI
+    └── static/
+        ├── index.html                # Interface web SPA
+        ├── style.css                 # Estilos globais
+        ├── app.js                    # Navegação SPA
+        └── modules/
+            ├── lista_os.js           # Gerenciador de OS
+            ├── mapa.js               # Mapa de congestionamento
+            ├── configuracao.js       # Configuração de regras
+            └── atribuicao.js         # Painel de atribuição
 ```
 
 ---
@@ -62,6 +73,9 @@ O banco reflete a realidade de um armazém com dois depósitos:
 | `os` | Ordens de Serviço com status e tipo |
 | `os_itens` | Itens da OS com controle de quantidade por destino |
 | `execucoes` | Histórico completo de atribuições e reatribuições |
+| `os_reservas` | Reservas de OS para operadores específicos |
+| `regras_atribuicao` | Regras de atribuição automática com condições JSONB |
+| `regras_presets` | Templates reutilizáveis de regras |
 
 ### Destaques da modelagem
 
@@ -74,8 +88,8 @@ Quando essa equação fecha para todos os itens → OS pode finalizar.
 **Reatribuição rastreada:**
 Cada atribuição gera uma linha em `execucoes`. Uma OS reatribuída terá duas linhas; a cancelada e a finalizada, preservando o histórico completo.
 
-**Dados logísticos provisórios:**
-Produtos sem dados do fabricante recebem valor padrão (0.2) com flag `dado_provisorio = TRUE` para controle de qualidade.
+**Motor de regras flexível:**
+Condições armazenadas em JSONB suportam operadores `<`, `>`, `=`, `!=` e agrupamento `all` (AND) / `any` (OR), permitindo evoluir sem alterar o schema.
 
 ---
 
@@ -92,14 +106,72 @@ score = tempo_base + custo_distancia + custo_congestao
 **custo_distancia** - tempo real de deslocamento em segundos, calculado com roteamento contínuo rua a rua:
 - Ruas com itens: percorre os prédios até cada item e sai pelo final da rua
 - Ruas sem itens: apenas o custo de travessia do corredor
-- Dimensões físicas configuráveis em `config.py` (largura de prédios, corredores, apartamentos, custo por nível)
+- Dimensões físicas configuráveis em `config.py`
 
-**custo_congestao** - soma do tempo restante estimado de cada operador ativo na mesma zona. Calculado com base no tempo decorrido desde o início da execução ativa versus o tempo médio histórico do operador.
+**custo_congestao** - soma do tempo restante estimado de cada operador ativo na mesma zona, baseado no tempo decorrido versus tempo médio histórico.
 
 Regras adicionais:
 - Um operador só pode ser sugerido para uma OS por rodada
-- Operadores de depósito incompatível com o tipo de OS são automaticamente excluídos
-- A sugestão inclui uma alternativa caso o gestor queira substituir
+- Operadores de depósito incompatível são automaticamente excluídos
+- A sugestão inclui alternativa caso o gestor queira substituir
+- Regras automáticas configuráveis podem sobrescrever a sugestão
+
+---
+
+## Interface Web
+
+Aplicação SPA com menu lateral e navegação sem recarregar página.
+
+### Aba 1 - Gerenciador de OS
+- Cards de OS com status, sugestão, score e alternativa
+- Filtros: Todas, Pendentes, Em Andamento, Reservadas
+- Modal de detalhes com decomposição completa do score
+- Sub-modal de itens com endereço, quantidade e status de cada item
+- Sistema de reservas com badge de operador e cancelamento
+
+### Aba 2 - Mapa de Congestionamento
+- Heatmap em grade 2D: ruas × prédios
+- Gradiente de cores por densidade de operadores
+- Filtros: Todos, Solo, Elevado - com grade unificada
+- Animação pulse nas zonas críticas (3+ operadores)
+- Tooltip com nome, tipo (SOLO/ELEVADO), OS e tempo de execução
+- Alerta automático da zona mais crítica
+
+### Aba 3 - Configuração de Atribuição
+- Motor de regras com condições JSONB flexíveis (AND/OR)
+- Presets reutilizáveis para criação rápida de regras
+- Modos: automático (usa sugestão do motor) ou fixo (operador específico)
+- Toggle de ativação/desativação por regra
+- Prioridade configurável - primeira regra que bate ganha
+
+### Aba 4 - Painel de Atribuição
+- Cards de OS pendentes com sugestão e score
+- Cards de operadores com status visual (verde/laranja/cinza)
+- Drag and drop de OS para operador
+- Atribuição manual com seleção de operador
+- Modal de confirmação com todos os detalhes antes de gravar
+- Badge de regra automática aplicada
+
+---
+
+## API
+
+| Rota | Método | Descrição |
+|---|---|---|
+| `/os/pendentes` | GET | OS com sugestões e regras aplicadas |
+| `/os/reservadas` | GET | OS com reserva ativa |
+| `/os/{id}/itens` | GET | Itens detalhados de uma OS |
+| `/os/reservar` | POST | Reserva OS para operador |
+| `/reservar/{id}` | DELETE | Cancela reserva |
+| `/atribuir` | POST | Atribui OS e grava no banco |
+| `/operadores/disponiveis` | GET | Operadores com posição estimada |
+| `/operadores/status` | GET | Operadores com status atual |
+| `/mapa/congestionamento` | GET | Densidade por zona |
+| `/mapa/dimensoes` | GET | Dimensões do armazém |
+| `/regras` | GET/POST | Lista e cria regras |
+| `/regras/{id}/ativo` | PATCH | Ativa ou desativa regra |
+| `/regras/{id}` | DELETE | Remove regra |
+| `/regras/presets` | GET | Lista presets disponíveis |
 
 ---
 
@@ -134,18 +206,21 @@ Separação Carrinho Fracionado representa ~40% do volume, seguida de Paletizado
 - **Custo de congestionamento** - em produção precisa de execuções ativas reais
 - **Causalidade vs correlação** - o modelo detecta padrões, mas não isola causa com certeza
 - **Sistema sugestivo** - não substitui o julgamento do gestor operacional
-- **Restrição de nível por tipo de operador** - o modelo não restringe operadores de separação fracionada (solo) de receberem OS com itens em níveis elevados. Em produção essa regra deve ser implementada no filtro de compatibilidade de depósito.
+- **Restrição de nível por tipo de operador** - o modelo não restringe operadores solo de receberem OS com itens em níveis elevados. Em produção essa regra deve ser implementada no filtro de compatibilidade
+- **Segurança** - API desenvolvida para uso local. Em produção seriam necessários autenticação JWT, rate limiting, HTTPS, CORS restritivo, validação de entidades e logs de auditoria
 
 ---
 
 ## Tecnologias
 
 - **PostgreSQL** - banco de dados relacional
-- **Python** - geração de dados, análise e motor de score
+- **Python** - geração de dados, análise, motor de score e API
+- **FastAPI** - API REST com documentação automática
 - **pandas** - manipulação de dados
 - **matplotlib / seaborn** - visualizações
-- **SQLAlchemy / psycopg** - conexão Python ↔ PostgreSQL
+- **SQLAlchemy / psycopg** - conexão Python <-> PostgreSQL
 - **Jupyter Notebook** - análise exploratória documentada
+- **HTML / CSS / JavaScript** - interface web SPA sem frameworks
 
 ---
 
@@ -159,7 +234,7 @@ psql -U postgres -d sad_logistica -f schema.sql
 
 ### 2. Dependências Python
 ```bash
-pip install psycopg[binary] pandas matplotlib seaborn sqlalchemy faker jupyter python-dotenv
+pip install psycopg[binary] pandas matplotlib seaborn sqlalchemy faker jupyter python-dotenv fastapi uvicorn
 ```
 
 ### 3. Variáveis de ambiente
@@ -177,12 +252,14 @@ DB_NAME=sad_logistica
 python dados/gerar_dados.py
 ```
 
-### 5. Análise exploratória
+### 5. Interface web
 ```bash
-jupyter notebook notebooks/01_analise_exploratoria.ipynb
+cd src
+uvicorn api:app --reload
 ```
+Acesse `http://localhost:8000`
 
-### 6. Motor de score
+### 6. Motor de score (standalone)
 ```bash
 python src/score.py
 ```
@@ -197,7 +274,7 @@ python src/score.py
 - [x] Análise exploratória completa
 - [x] Motor de score v1 (tempo base + distância + congestionamento)
 
-### Fase 2 — Motor de score melhorado (concluída)
+### Fase 2 - Motor de score melhorado (concluída)
 - [x] Congestionamento dinâmico com vw_operadores_ativos
 - [x] Distância real por item com dimensões físicas do armazém
 - [x] Roteamento contínuo rua a rua com custo de travessia real
@@ -206,19 +283,25 @@ python src/score.py
 - [x] Configurações do armazém externalizadas em config.py
 - [x] Notebook documentado do motor de score
 
-### Fase 3 - Interface
-- [ ] Dashboard de indicadores operacionais
-  - Tempo médio por operador e tipo de OS
-  - Taxa de reatribuição
-  - Operadores mais rápidos por tipo
-  - Zonas mais congestionadas
-- [ ] Página interativa de sugestão de atribuição
+### Fase 3 - Interface (concluída)
+- [x] API FastAPI com rotas completas
+- [x] Gerenciador de OS com filtros, reservas e detalhes de itens
+- [x] Mapa de congestionamento com heatmap e filtros por depósito
+- [x] Configuração de regras automáticas com presets e JSONB
+- [x] Painel de atribuição com drag and drop e confirmação
 
-### Fase 4 - Modelo preditivo
-- [ ] Regressão linear como baseline
+### Fase 4 - Modelo preditivo (em desenvolvimento)
+- [ ] Regressão linear como baseline preditivo
 - [ ] Random Forest para capturar não-linearidades
-- [ ] Avaliação e comparação de modelos
-- [ ] Previsão de tempo antes da execução
+- [ ] Avaliação e comparação de modelos (RMSE, MAE)
+- [ ] Previsão de tempo de execução antes da atribuição
+- [ ] Integração da previsão no motor de score
+
+### Fase 5 - Melhorias futuras
+- [ ] Otimização da ordem de coleta dentro da OS para mitigação de gargalo; visualizável através do Mapa de Congestionamento
+- [ ] Autenticação de usuários e perfis de acesso
+- [ ] Dashboard de indicadores históricos
+- [ ] Restrição de nível por tipo de operador no motor
 
 ---
 
