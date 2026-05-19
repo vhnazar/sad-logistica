@@ -4,6 +4,34 @@
 
 ---
 
+## Screenshots
+
+### Painel de Atribuição
+![Painel de Atribuição](docs/screenshots/01_painel_atribuicao.png)
+
+### Mapa de Congestionamento
+![Mapa de Congestionamento](docs/screenshots/02_mapa_congestionamento.png)
+
+### Mapa com Tooltip
+![Mapa com Tooltip](docs/screenshots/03_mapa_tooltip.png)
+
+### Gerenciador de OS - Modal de Itens
+![Gerenciador de OS](docs/screenshots/04_gerenciador_modal_itens.png)
+
+### Gerenciador de OS - Status dos Itens
+![Gerenciador de OS Status](docs/screenshots/05_gerenciador_itens_status.png)
+
+### Configuração de Atribuição
+![Configuração de Atribuição](docs/screenshots/06_configuracao_regras.png)
+
+### Modelo Preditivo - Previsto vs Real
+![Previsto vs Real](docs/screenshots/07_modelo_previsto_real.png)
+
+### Modelo Preditivo - Importância das Features
+![Importância das Features](docs/screenshots/08_modelo_features.png)
+
+---
+
 ## Problema
 
 Em operações de separação de pedidos (picking), a atribuição de Ordens de Serviço (OS) aos operadores geralmente é feita de forma manual ou por fila simples. Isso ignora fatores críticos como:
@@ -35,6 +63,9 @@ sad-logistica/
 │
 ├── dados/
 │   └── gerar_dados.py                # Geração de dados sintéticos (90 dias)
+│
+├── docs/
+│   └── screenshots/                  # Screenshots da interface
 │
 ├── notebooks/
 │   ├── 01_analise_exploratoria.ipynb # EDA completa
