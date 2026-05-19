@@ -3,6 +3,9 @@ __pycache__/
 *.py[cod]
 *$py.class
 
+# Modelo preditivo treinado - arquivos binários não versionados
+src/modelo/
+
 # C extensions
 *.so
 

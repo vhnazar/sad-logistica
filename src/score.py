@@ -1,9 +1,12 @@
 import os
 import pandas as pd
+from datetime import datetime
 from sqlalchemy import create_engine
 from urllib.parse import quote_plus
 from dotenv import load_dotenv
 from config import WAREHOUSE_LAYOUT
+import joblib
+from pathlib import Path
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 load_dotenv(os.path.join(BASE_DIR, ".env"))
@@ -22,6 +25,18 @@ DB_PASSWORD = quote_plus(DB_PASSWORD)
 engine = create_engine(
     f"postgresql+psycopg2://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
 )
+
+# Carrega o modelo preditivo
+_modelo_dir = Path(__file__).parent / "modelo"
+try:
+    _modelo_rf = joblib.load(_modelo_dir / "random_forest.joblib")
+    _encoder   = joblib.load(_modelo_dir / "label_encoder.joblib")
+    _features  = joblib.load(_modelo_dir / "features.joblib")
+    MODELO_DISPONIVEL = True
+    print("Modelo preditivo carregado.")
+except Exception as e:
+    MODELO_DISPONIVEL = False
+    print(f"Modelo preditivo não disponível, usando média histórica. ({e})")
 
 def buscar_operadores():
     query = """
@@ -99,6 +114,8 @@ def buscar_itens_os_pendentes():
                 o.tipo_codigo,
                 ed.deposito_id,
                 oi.produto_id,
+				p.peso_bruto_kg,
+				p.volume_cm3,
                 ed.rua,
                 ed.predio,
                 ed.nivel,
@@ -106,6 +123,7 @@ def buscar_itens_os_pendentes():
         FROM os o
         JOIN os_tipos ot ON ot.codigo = o.tipo_codigo
         JOIN os_itens oi ON oi.os_id = o.id
+		JOIN produtos p ON p.id = oi.produto_id
         JOIN enderecos ed ON ed.id = oi.endereco_id
         WHERE o.status = 'pendente'
         ORDER BY o.id, ed.rua, ed.predio, ed.nivel, ed.apartamento
@@ -176,7 +194,7 @@ def calcular_distancia_real(op, itens_da_os):
 
     for rua in range(rua_min, rua_max + 1):
         if rua == rua_op:
-            # Já está nessa rua — usa posição real do operador como referência
+            # Já está nessa rua - usa posição real do operador como referência
             itens_desta_rua = itens_da_os[itens_da_os["rua"] == rua]
             for _, item in itens_desta_rua.iterrows():
                 custo_total += abs(op["predio_media"] - item["predio"]) * CUSTO_PREDIO
@@ -200,32 +218,79 @@ def calcular_distancia_real(op, itens_da_os):
             custo_total += abs(PREDIOS_POR_RUA - ultimo_predio) * CUSTO_PREDIO
 
         else:
-            # Sem itens — só atravessa o corredor
+            # Sem itens - só atravessa o corredor
             custo_total += CUSTO_CORREDOR
 
     return custo_total
 
+def prever_tempo(operador_id: int, tipo_os: str, qtd_itens: int,
+                 volume_cm3: float, peso_kg: float) -> float | None:
+    """
+    Prevê o tempo de execução usando o Random Forest.
+    Retorna None se o modelo não estiver disponível ou se o tipo_os
+    não estiver no encoder (tipo desconhecido).
+    """
+    if not MODELO_DISPONIVEL:
+        return None
+
+    try:
+        tipo_encoded = _encoder.transform([tipo_os])[0]
+    except ValueError:
+        # Tipo de OS não visto no treino
+        return None
+
+    hora_atual = datetime.now().hour
+    dia_atual  = datetime.now().weekday()
+
+    X = pd.DataFrame([{
+        'tipo_os_encoded':  tipo_encoded,
+        'qtd_itens':        qtd_itens,
+        'volume_total_cm3': volume_cm3,
+        'peso_total_kg':    peso_kg,
+        'hora_inicio':      hora_atual,
+        'dia_semana':       dia_atual,
+        'operador_id':      operador_id
+    }])[_features]
+
+    return float(_modelo_rf.predict(X)[0])
+
 def calcular_score(operador, os_row, itens_da_os, baseline, operadores_ativos):
-    # 1. Tempo base do operador para esse tipo de OS
-    filtro = (
-        (baseline["matricula"] == operador["id"]) &
-        (baseline["codigo_os"] == os_row["tipo_codigo"])
+    # 1. Tempo base - usa previsão do modelo se disponível, fallback para média histórica
+    qtd_itens  = len(itens_da_os)
+    volume_cm3 = 0
+    peso_kg    = 0
+
+    # Tenta buscar volume e peso dos itens se disponível
+    if 'volume_cm3' in itens_da_os.columns:
+        volume_cm3 = itens_da_os['volume_cm3'].sum()
+    if 'peso_bruto_kg' in itens_da_os.columns:
+        peso_kg = itens_da_os['peso_bruto_kg'].sum()
+
+    tempo_base = prever_tempo(
+        operador_id=operador["id"],
+        tipo_os=os_row["tipo_os"],
+        qtd_itens=qtd_itens,
+        volume_cm3=volume_cm3,
+        peso_kg=peso_kg
     )
-    historico = baseline[filtro]
 
-    if historico.empty:
-        # Fallback: média dos operadores que já fizeram esse tipo de OS.
-        # Evita que operador sem histórico tenha tempo_base=0, o que distorce o score.
-        fallback = baseline[
-            baseline["codigo_os"] == os_row["tipo_codigo"]
-        ]["tempo_medio"].mean()
+    if tempo_base is None:
+        # Fallback: média histórica
+        filtro = (
+            (baseline["matricula"] == operador["id"]) &
+            (baseline["codigo_os"] == os_row["tipo_codigo"])
+        )
+        historico = baseline[filtro]
 
-        # Se ninguém nunca fez esse tipo, usa média geral
-        tempo_base = fallback if not pd.isna(fallback) else baseline["tempo_medio"].mean()
-    else:
-        tempo_base = historico["tempo_medio"].values[0]
-        if  pd.isna(tempo_base):
-            tempo_base = baseline["tempo_medio"].mean()
+        if historico.empty:
+            fallback = baseline[
+                baseline["codigo_os"] == os_row["tipo_codigo"]
+            ]["tempo_medio"].mean()
+            tempo_base = fallback if not pd.isna(fallback) else baseline["tempo_medio"].mean()
+        else:
+            tempo_base = historico["tempo_medio"].values[0]
+            if pd.isna(tempo_base):
+                tempo_base = baseline["tempo_medio"].mean()
 
     # 2. Custo de distância entre operador e OS
     custo_distancia = calcular_distancia_real(operador, itens_da_os)
