@@ -38,11 +38,12 @@ sad-logistica/
 │
 ├── notebooks/
 │   ├── 01_analise_exploratoria.ipynb # EDA completa
-│   └── 02_motor_de_score.ipynb       # Demonstração do motor de score
+│   ├── 02_motor_de_score.ipynb       # Demonstração do motor de score
+│   └── 03_modelo_preditivo.ipynb     # Treinamento e avaliação do modelo
 │
 └── src/
     ├── config.py                     # Configurações físicas do armazém
-    ├── score.py                      # Motor de score v5
+    ├── score.py                      # Motor de score v5 com modelo preditivo
     ├── regras.py                     # Motor de avaliação de regras
     ├── api.py                        # API FastAPI
     └── static/
@@ -83,10 +84,10 @@ O banco reflete a realidade de um armazém com dois depósitos:
 ```
 qt_total = qt_finalizada + qt_cortada + qt_cancelada
 ```
-Quando essa equação fecha para todos os itens → OS pode finalizar.
+Quando essa equação fecha para todos os itens, a OS pode finalizar.
 
 **Reatribuição rastreada:**
-Cada atribuição gera uma linha em `execucoes`. Uma OS reatribuída terá duas linhas; a cancelada e a finalizada, preservando o histórico completo.
+Cada atribuição gera uma linha em `execucoes`. Uma OS reatribuída terá duas linhas, a cancelada e a finalizada, preservando o histórico completo.
 
 **Motor de regras flexível:**
 Condições armazenadas em JSONB suportam operadores `<`, `>`, `=`, `!=` e agrupamento `all` (AND) / `any` (OR), permitindo evoluir sem alterar o schema.
@@ -101,7 +102,7 @@ Para cada combinação `(operador, OS pendente)`, o motor calcula:
 score = tempo_base + custo_distancia + custo_congestao
 ```
 
-**tempo_base** - média histórica do operador para aquele tipo de OS. Fallback para média do tipo se o operador nunca executou aquele tipo, ou média geral se ninguém executou.
+**tempo_base** - previsão do modelo preditivo (Random Forest) quando disponível. Fallback para média histórica do operador por tipo de OS se o modelo não estiver disponível.
 
 **custo_distancia** - tempo real de deslocamento em segundos, calculado com roteamento contínuo rua a rua:
 - Ruas com itens: percorre os prédios até cada item e sai pelo final da rua
@@ -118,6 +119,23 @@ Regras adicionais:
 
 ---
 
+## Modelo Preditivo
+
+Random Forest treinado sobre 580 execuções históricas para prever o tempo de execução de uma OS antes da atribuição.
+
+| Modelo | MAE | RMSE | R² |
+|---|---|---|---|
+| Regressão Linear (baseline) | 11.3 min | 14.4 min | 0.317 |
+| Random Forest | 7.1 min | 9.3 min | 0.715 |
+
+**Features utilizadas:** tipo de OS, quantidade de itens, volume total, peso total, hora do dia, dia da semana, operador.
+
+**Features mais importantes:** tipo de OS (43.2%), quantidade de itens (27.8%), operador (8.3%).
+
+O modelo é carregado automaticamente pelo motor de score. Se não estiver disponível, o sistema usa a média histórica como fallback sem interrupção.
+
+---
+
 ## Interface Web
 
 Aplicação SPA com menu lateral e navegação sem recarregar página.
@@ -130,9 +148,9 @@ Aplicação SPA com menu lateral e navegação sem recarregar página.
 - Sistema de reservas com badge de operador e cancelamento
 
 ### Aba 2 - Mapa de Congestionamento
-- Heatmap em grade 2D: ruas × prédios
+- Heatmap em grade 2D: ruas x prédios
 - Gradiente de cores por densidade de operadores
-- Filtros: Todos, Solo, Elevado - com grade unificada
+- Filtros: Todos, Solo, Elevado com grade unificada
 - Animação pulse nas zonas críticas (3+ operadores)
 - Tooltip com nome, tipo (SOLO/ELEVADO), OS e tempo de execução
 - Alerta automático da zona mais crítica
@@ -142,7 +160,7 @@ Aplicação SPA com menu lateral e navegação sem recarregar página.
 - Presets reutilizáveis para criação rápida de regras
 - Modos: automático (usa sugestão do motor) ou fixo (operador específico)
 - Toggle de ativação/desativação por regra
-- Prioridade configurável - primeira regra que bate ganha
+- Prioridade configurável, primeira regra que bate ganha
 
 ### Aba 4 - Painel de Atribuição
 - Cards de OS pendentes com sugestão e score
@@ -216,9 +234,10 @@ Separação Carrinho Fracionado representa ~40% do volume, seguida de Paletizado
 - **PostgreSQL** - banco de dados relacional
 - **Python** - geração de dados, análise, motor de score e API
 - **FastAPI** - API REST com documentação automática
+- **scikit-learn** - modelo preditivo Random Forest
 - **pandas** - manipulação de dados
 - **matplotlib / seaborn** - visualizações
-- **SQLAlchemy / psycopg** - conexão Python <-> PostgreSQL
+- **SQLAlchemy / psycopg** - conexão Python com PostgreSQL
 - **Jupyter Notebook** - análise exploratória documentada
 - **HTML / CSS / JavaScript** - interface web SPA sem frameworks
 
@@ -234,7 +253,7 @@ psql -U postgres -d sad_logistica -f schema.sql
 
 ### 2. Dependências Python
 ```bash
-pip install psycopg[binary] pandas matplotlib seaborn sqlalchemy faker jupyter python-dotenv fastapi uvicorn
+pip install psycopg[binary] pandas matplotlib seaborn sqlalchemy faker jupyter python-dotenv fastapi uvicorn scikit-learn joblib
 ```
 
 ### 3. Variáveis de ambiente
@@ -252,14 +271,20 @@ DB_NAME=sad_logistica
 python dados/gerar_dados.py
 ```
 
-### 5. Interface web
+### 5. Treinar o modelo preditivo
+```bash
+jupyter notebook notebooks/03_modelo_preditivo.ipynb
+```
+Execute todas as células para gerar os arquivos em `src/modelo/`.
+
+### 6. Interface web
 ```bash
 cd src
 uvicorn api:app --reload
 ```
 Acesse `http://localhost:8000`
 
-### 6. Motor de score (standalone)
+### 7. Motor de score (standalone)
 ```bash
 python src/score.py
 ```
@@ -290,15 +315,15 @@ python src/score.py
 - [x] Configuração de regras automáticas com presets e JSONB
 - [x] Painel de atribuição com drag and drop e confirmação
 
-### Fase 4 - Modelo preditivo (em desenvolvimento)
-- [ ] Regressão linear como baseline preditivo
-- [ ] Random Forest para capturar não-linearidades
-- [ ] Avaliação e comparação de modelos (RMSE, MAE)
-- [ ] Previsão de tempo de execução antes da atribuição
-- [ ] Integração da previsão no motor de score
+### Fase 4 - Modelo preditivo (concluída)
+- [x] Regressão linear como baseline preditivo
+- [x] Random Forest para capturar não-linearidades
+- [x] Avaliação e comparação de modelos (RMSE, MAE, R²)
+- [x] Notebook documentado com análise de features e visualizações
+- [x] Integração da previsão no motor de score com fallback automático
 
 ### Fase 5 - Melhorias futuras
-- [ ] Otimização da ordem de coleta dentro da OS para mitigação de gargalo; visualizável através do Mapa de Congestionamento
+- [ ] Otimização da ordem de coleta dentro da OS para mitigação de gargalo
 - [ ] Autenticação de usuários e perfis de acesso
 - [ ] Dashboard de indicadores históricos
 - [ ] Restrição de nível por tipo de operador no motor
