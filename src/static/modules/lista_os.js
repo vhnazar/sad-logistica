@@ -530,7 +530,7 @@ async function abrirRotaOtimizada(osId) {
                 </div>
             `;
         } else {
-            alertaHtml = `<div class="rota-ok">Rota sem congestionamentos, segue sequência serpentina padrão.</div>`;
+            alertaHtml = `<div class="rota-ok">Rota sem congestionamentos, segue sequência serpentina padrão. Tempo estimado de deslocamento: <strong>${resultado.tempo_total_deslocamento_min} min</strong></div>`;
         }
 
         // Tabela de rota
@@ -543,6 +543,7 @@ async function abrirRotaOtimizada(osId) {
                             <th>Produto</th>
                             <th>Endereço</th>
                             <th>Qtde</th>
+                            <th>Deslocamento</th>
                             <th>Status</th>
                         </tr>
                     </thead>
@@ -560,6 +561,7 @@ async function abrirRotaOtimizada(osId) {
                     <td>${item.produto}</td>
                     <td>Rua: ${item.rua} | Prédio: ${item.predio} | Nível: ${item.nivel} | Apto: ${item.apartamento}</td>
                     <td>${item.qt_finalizada || 0}/${item.qt_total}</td>
+                    <td>${item.tempo_deslocamento_seg > 0 ? '+' + item.tempo_deslocamento_seg + 's' : '-'}</td>
                     <td>${badge}</td>
                 </tr>
             `;

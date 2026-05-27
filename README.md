@@ -21,6 +21,9 @@
 ### Gerenciador de OS - Status dos Itens
 ![Gerenciador de OS Status](docs/screenshots/05_gerenciador_itens_status.png)
 
+### Otimizador de rota de produtos na OS
+![Otimizador de Rota de Produtos](docs/screenshots/9_rota_otimizada.png)
+
 ### Configuração de Atribuição
 ![Configuração de Atribuição](docs/screenshots/06_configuracao_regras.png)
 
@@ -76,6 +79,7 @@ sad-logistica/
     ├── config.py                     # Configurações físicas do armazém
     ├── score.py                      # Motor de score v5 com modelo preditivo
     ├── regras.py                     # Motor de avaliação de regras
+    ├── rota.py                       # Otimizador de ordem de produtos
     ├── api.py                        # API FastAPI
     └── static/
         ├── index.html                # Interface web SPA
@@ -210,6 +214,7 @@ Aplicação SPA com menu lateral e navegação sem recarregar página.
 | `/os/pendentes` | GET | OS com sugestões e regras aplicadas |
 | `/os/reservadas` | GET | OS com reserva ativa |
 | `/os/{id}/itens` | GET | Itens detalhados de uma OS |
+| `/os/{id}/rota_otimizada` | GET | Rota otimizada de coleta com tempo de deslocamento |
 | `/os/reservar` | POST | Reserva OS para operador |
 | `/reservar/{id}` | DELETE | Cancela reserva |
 | `/atribuir` | POST | Atribui OS e grava no banco |

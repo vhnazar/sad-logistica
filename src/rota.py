@@ -46,6 +46,38 @@ def calcular_atraso_zona(rua: int, predio: int, operadores_ativos: list[dict],
 
     return atraso_total
 
+def calcular_tempo_entre_itens(item_a: dict, item_b: dict) -> float:
+    """
+    Calcula tempo estimado de deslocamento entre dois itens consecutivos
+    usando as dimensões físicas do armazém (config.py).
+    Segue o padrão serpentina, não recalcula rota, só estima tempo direto.
+    """
+    CUSTO_APTO     = WAREHOUSE_LAYOUT["largura_apto_m"]     / WAREHOUSE_LAYOUT["velocidade_ms"]
+    CUSTO_PREDIO   = WAREHOUSE_LAYOUT["largura_predio_m"]   / WAREHOUSE_LAYOUT["velocidade_ms"]
+    CUSTO_CORREDOR = WAREHOUSE_LAYOUT["largura_corredor_m"] / WAREHOUSE_LAYOUT["velocidade_ms"]
+    CUSTO_NIVEL    = WAREHOUSE_LAYOUT["custo_nivel_seg"]
+
+    custo = 0
+
+    # Deslocamento de apartamento
+    custo += abs(item_a["apartamento"] - item_b["apartamento"]) * CUSTO_APTO
+
+    # Deslocamento de nível
+    custo += abs(item_a["nivel"] - item_b["nivel"]) * CUSTO_NIVEL
+
+    if item_a["rua"] == item_b["rua"]:
+        # Mesma rua - só deslocamento de prédio
+        custo += abs(item_a["predio"] - item_b["predio"]) * CUSTO_PREDIO
+    else:
+        # Ruas diferentes - percorre até o fim da rua atual + corredor + prédios na rua destino
+        predios_por_rua = WAREHOUSE_LAYOUT["predios_por_rua"]
+        ruas_entre = abs(item_a["rua"] - item_b["rua"])
+
+        custo += abs(item_a["predio"] - predios_por_rua) * CUSTO_PREDIO
+        custo += ruas_entre * CUSTO_CORREDOR
+        custo += abs(1 - item_b["predio"]) * CUSTO_PREDIO
+
+    return round(custo, 1)
 
 def otimizar_rota(itens: list[dict], operadores_ativos: list[dict],
                    baseline: pd.DataFrame) -> dict:
@@ -133,10 +165,22 @@ def otimizar_rota(itens: list[dict], operadores_ativos: list[dict],
         if v["congestionada"]
     ]
 
+    # 6. Calcula tempo estimado de deslocamento entre itens consecutivos
+    tempo_total_seg = 0
+    for i, item in enumerate(rota_final):
+        if i == 0:
+            item["tempo_deslocamento_seg"] = 0
+        else:
+            t = calcular_tempo_entre_itens(rota_final[i-1], rota_final[i])
+            item["tempo_deslocamento_seg"] = t
+            tempo_total_seg += t
+
     return {
         "rota":                 rota_final,
         "total_itens":          len(rota_final),
         "itens_reordenados":    len(itens_congestionados),
         "zonas_congestionadas": zonas_congestionadas,
-        "reordenacao_sugerida": len(itens_congestionados) > 0
+        "reordenacao_sugerida": len(itens_congestionados) > 0,
+        "tempo_total_deslocamento_seg": round(tempo_total_seg),
+        "tempo_total_deslocamento_min": round(tempo_total_seg / 60, 1)
     }
