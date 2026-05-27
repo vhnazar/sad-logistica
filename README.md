@@ -354,7 +354,7 @@ python src/score.py
 - [x] Integração da previsão no motor de score com fallback automático
 
 ### Fase 5 - Melhorias futuras
-- [ ] Otimização da ordem de coleta dentro da OS para mitigação de gargalo
+- [x] Otimização da ordem de coleta dentro da OS para mitigação de gargalo
 - [ ] Autenticação de usuários e perfis de acesso
 - [ ] Dashboard de indicadores históricos
 - [ ] Restrição de nível por tipo de operador no motor

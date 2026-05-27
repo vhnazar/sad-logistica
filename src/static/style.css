@@ -1070,3 +1070,42 @@ body {
     margin-top: 12px;
     text-align: center;
 }
+
+.btn-rota-otimizada {
+    background: #f3e5f5;
+    color: #6a1b9a;
+    border: none;
+    padding: 8px 20px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 500;
+    transition: opacity 0.2s;
+}
+
+.btn-rota-otimizada:hover { opacity: 0.85; }
+
+.rota-alerta {
+    background: #fff3e0;
+    border-left: 4px solid #f39c12;
+    padding: 12px 16px;
+    border-radius: 6px;
+    font-size: 13px;
+    color: #e65100;
+    margin-bottom: 16px;
+    line-height: 1.6;
+}
+
+.rota-ok {
+    background: #e8f5e9;
+    border-left: 4px solid #2e7d32;
+    padding: 10px 16px;
+    border-radius: 6px;
+    font-size: 13px;
+    color: #2e7d32;
+    margin-bottom: 16px;
+}
+
+.rota-linha-congestionada {
+    background: #fff8e1;
+}

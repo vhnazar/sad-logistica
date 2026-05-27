@@ -13,6 +13,7 @@ import pandas as pd
 sys.path.insert(0, str(Path(__file__).parent))
 from score import sugerir_atribuicoes, buscar_operadores
 from regras import aplicar_regras
+from rota import otimizar_rota
 
 load_dotenv(Path(__file__).parent.parent / ".env")
 
@@ -212,6 +213,47 @@ def get_itens_os(os_id: int):
         """), {"os_id": os_id})
         return [row._mapping for row in result]
 
+@app.get("/os/{os_id}/rota_otimizada")
+def get_rota_otimizada(os_id: int):
+    import json
+    from score import buscar_baseline, buscar_operadores_ativos
+
+    # Busca itens da OS
+    with engine.begin() as conn:
+        result = conn.execute(text("""
+            SELECT
+                ed.rua,
+                ed.predio,
+                ed.nivel,
+                ed.apartamento,
+                oi.id          AS item_id,
+                p.nome         AS produto,
+                p.codigo       AS codigo_produto,
+                oi.qt_total,
+                oi.qt_finalizada,
+                oi.dt_finalizacao,
+                oi.dt_corte,
+                oi.dt_cancelamento
+            FROM os_itens oi
+            JOIN enderecos ed ON ed.id = oi.endereco_id
+            JOIN produtos p   ON p.id  = oi.produto_id
+            WHERE oi.os_id = :os_id
+              AND oi.dt_finalizacao  IS NULL
+              AND oi.dt_cancelamento IS NULL
+              AND oi.dt_corte        IS NULL
+            ORDER BY ed.rua, ed.predio, ed.nivel, ed.apartamento
+        """), {"os_id": os_id})
+        itens = [dict(row._mapping) for row in result]
+
+    if not itens:
+        return {"rota": [], "total_itens": 0, "itens_reordenados": 0,
+                "zonas_congestionadas": [], "reordenacao_sugerida": False}
+
+    # Busca operadores ativos e baseline
+    operadores_ativos = buscar_operadores_ativos().to_dict(orient="records")
+    baseline          = buscar_baseline()
+
+    return otimizar_rota(itens, operadores_ativos, baseline)
 
 @app.get("/operadores/disponiveis")
 def get_operadores():

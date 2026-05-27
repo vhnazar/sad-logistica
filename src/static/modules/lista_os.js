@@ -356,6 +356,9 @@ function abrirDetalhesOS(osId) {
                 <button class="btn-os-itens" onclick="abrirDetalhesItens(${os.os_id})">
                     Ver detalhes dos itens
                 </button>
+                <button class="btn-rota-otimizada" onclick="abrirRotaOtimizada(${os.os_id})">
+                    Ver rota otimizada
+                </button>
                 <button class="btn-cancelar" onclick="document.getElementById('modal-detalhes').remove()">
                     Fechar
                 </button>
@@ -477,4 +480,96 @@ function mostrarNotificacao(mensagem, tipo = 'sucesso') {
 
     // Some automaticamente após 3 segundos
     setTimeout(() => notif.remove(), 3000);
+}
+
+// ROTA OTIMIZADA
+async function abrirRotaOtimizada(osId) {
+    document.getElementById('modal-rota')?.remove();
+
+    const modal = document.createElement('div');
+    modal.id = 'modal-rota';
+    modal.className = 'modal-overlay';
+    modal.innerHTML = `
+        <div class="modal modal-itens">
+            <div class="modal-header">
+                <h3>Rota Otimizada - OS #${osId}</h3>
+                <button class="modal-fechar" onclick="document.getElementById('modal-rota').remove()">✕</button>
+            </div>
+            <div class="modal-body" id="modal-rota-body">
+                <div class="carregando">Calculando rota...</div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-cancelar" onclick="document.getElementById('modal-rota').remove()">Fechar</button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(modal);
+    modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+
+    try {
+        const resposta = await fetch(`/os/${osId}/rota_otimizada`);
+        const resultado = await resposta.json();
+        const body = document.getElementById('modal-rota-body');
+
+        if (resultado.rota.length === 0) {
+            body.innerHTML = '<div class="vazio">Nenhum item pendente nesta OS.</div>';
+            return;
+        }
+
+        // Alerta de reordenação
+        let alertaHtml = '';
+        if (resultado.reordenacao_sugerida) {
+            const zonas = resultado.zonas_congestionadas.map(z =>
+                `Rua ${z.rua} · Prédio ${z.predio} — ${z.total_operadores} operadores · ~${z.atraso_min} min de atraso`
+            ).join('<br>');
+            alertaHtml = `
+                <div class="rota-alerta">
+                    <strong>Reordenação sugerida</strong><br>
+                    ${resultado.itens_reordenados} item(s) movidos para o final da rota devido a congestionamento:<br>
+                    <small>${zonas}</small>
+                </div>
+            `;
+        } else {
+            alertaHtml = `<div class="rota-ok">Rota sem congestionamentos, segue sequência serpentina padrão.</div>`;
+        }
+
+        // Tabela de rota
+        let tabelaHtml = `
+            <div class="modal-tabela-scroll">
+                <table class="modal-tabela">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Produto</th>
+                            <th>Endereço</th>
+                            <th>Qtde</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+        `;
+
+        resultado.rota.forEach((item, idx) => {
+            const linha = item.congestionado ? 'rota-linha-congestionada' : '';
+            const badge = item.congestionado
+                ? `<span class="badge badge-reservada">Congestionado</span>`
+                : `<span class="badge badge-sucesso">OK</span>`;
+            tabelaHtml += `
+                <tr class="${linha}">
+                    <td>${idx + 1}</td>
+                    <td>${item.produto}</td>
+                    <td>Rua: ${item.rua} | Prédio: ${item.predio} | Nível: ${item.nivel} | Apto: ${item.apartamento}</td>
+                    <td>${item.qt_finalizada || 0}/${item.qt_total}</td>
+                    <td>${badge}</td>
+                </tr>
+            `;
+        });
+
+        tabelaHtml += '</tbody></table></div>';
+        body.innerHTML = alertaHtml + tabelaHtml;
+
+    } catch (erro) {
+        document.getElementById('modal-rota-body').innerHTML =
+            `<div class="erro">Erro ao calcular rota: ${erro.message}</div>`;
+    }
 }
