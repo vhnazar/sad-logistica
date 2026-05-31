@@ -1,6 +1,20 @@
 # SAD - Sistema de Apoio à Decisão para Logística Interna
 
-> Projeto em desenvolvimento - modelagem, análise exploratória, motor de decisão e interface operacional para otimização de picking em armazéns.
+> Sistema de Apoio à Decisão para otimização da atribuição de Ordens de Serviço, redução de congestionamentos operacionais e aumento da produtividade em operações logísticas.
+
+Busca otimizar a atribuição de Ordens de Serviço (OS), reduzir congestionamentos operacionais e melhorar a produtividade dos operadores.
+
+O projeto combina:
+
+- Modelagem relacional em PostgreSQL
+- API REST com FastAPI
+- Dashboard operacional em JavaScript
+- Motor de regras configurável
+- Algoritmo de roteamento interno
+- Machine Learning para previsão de tempo de execução
+- Análise exploratória de dados
+
+O objetivo é demonstrar a aplicação prática de Engenharia de Dados, Analytics e Ciência de Dados em um cenário logístico real.
 
 ---
 
@@ -26,6 +40,9 @@
 
 ### Configuração de Atribuição
 ![Configuração de Atribuição](docs/screenshots/06_configuracao_regras.png)
+
+### Painel de Indicadores Operacionais
+![Painel de Indicadores](docs/screenshots/10_painel_de_indicadores.png)
 
 ### Modelo Preditivo - Previsto vs Real
 ![Previsto vs Real](docs/screenshots/07_modelo_previsto_real.png)
@@ -89,7 +106,8 @@ sad-logistica/
             ├── lista_os.js           # Gerenciador de OS
             ├── mapa.js               # Mapa de congestionamento
             ├── configuracao.js       # Configuração de regras
-            └── atribuicao.js         # Painel de atribuição
+            ├── atribuicao.js         # Painel de atribuição
+            └── dashboard.js          # Painel de Indicadores
 ```
 
 ---
@@ -211,21 +229,26 @@ Aplicação SPA com menu lateral e navegação sem recarregar página.
 
 | Rota | Método | Descrição |
 |---|---|---|
-| `/os/pendentes` | GET | OS com sugestões e regras aplicadas |
-| `/os/reservadas` | GET | OS com reserva ativa |
-| `/os/{id}/itens` | GET | Itens detalhados de uma OS |
-| `/os/{id}/rota_otimizada` | GET | Rota otimizada de coleta com tempo de deslocamento |
-| `/os/reservar` | POST | Reserva OS para operador |
-| `/reservar/{id}` | DELETE | Cancela reserva |
-| `/atribuir` | POST | Atribui OS e grava no banco |
-| `/operadores/disponiveis` | GET | Operadores com posição estimada |
-| `/operadores/status` | GET | Operadores com status atual |
-| `/mapa/congestionamento` | GET | Densidade por zona |
-| `/mapa/dimensoes` | GET | Dimensões do armazém |
-| `/regras` | GET/POST | Lista e cria regras |
-| `/regras/{id}/ativo` | PATCH | Ativa ou desativa regra |
-| `/regras/{id}` | DELETE | Remove regra |
-| `/regras/presets` | GET | Lista presets disponíveis |
+| `/os/pendentes` | GET | Retorna as ordens de serviço pendentes com sugestões de alocação e regras de negócio aplicadas. |
+| `/os/reservadas` | GET | Lista as ordens de serviço atualmente reservadas para execução. |
+| `/os/{id}/itens` | GET | Consulta os itens detalhados vinculados a uma ordem de serviço específica. |
+| `/os/{id}/rota_otimizada` | GET | Calcula e retorna a rota otimizada de coleta, estimando deslocamento e sequência ideal de separação dos itens. |
+| `/os/reservar` | POST | Realiza a reserva temporária de uma ordem de serviço para um operador. |
+| `/reservar/{id}` | DELETE | Remove uma reserva ativa, liberando a ordem de serviço para nova alocação. |
+| `/atribuir` | POST | Efetiva a atribuição da ordem de serviço ao operador e registra a operação no banco de dados. |
+| `/operadores/disponiveis` | GET | Retorna operadores elegíveis para execução, considerando disponibilidade e localização estimada. |
+| `/operadores/status` | GET | Exibe o status operacional atual dos operadores. |
+| `/mapa/congestionamento` | GET | Fornece métricas de densidade operacional e congestionamento por zona do armazém. |
+| `/mapa/dimensoes` | GET | Retorna as dimensões físicas e configuração do layout do armazém. |
+| `/regras` | GET/POST | Consulta ou cadastra regras de negócio utilizadas pelo motor de priorização e alocação. |
+| `/regras/{id}/ativo` | PATCH | Ativa ou desativa uma regra específica sem necessidade de exclusão. |
+| `/regras/{id}` | DELETE | Remove uma regra de negócio cadastrada. |
+| `/regras/presets` | GET | Lista conjuntos pré-configurados de regras disponíveis para aplicação. |
+| `/dashboard/resumo` | GET | Retorna indicadores consolidados da operação, incluindo volume executado, produtividade e tempos médios. |
+| `/dashboard/produtividade` | GET | Disponibiliza métricas de produtividade por operador e por tipo de operação. |
+| `/dashboard/volume` | GET | Apresenta a distribuição e evolução do volume de ordens de serviço executadas. |
+| `/dashboard/congestionamento` | GET | Retorna dados para análise de concentração operacional por horário e dia da semana, utilizados em heatmaps e indicadores de carga. |
+| `/dashboard/tipo_os` | GET | Lista os tipos de ordens de serviço disponíveis para filtros e segmentação analítica. |
 
 ---
 
