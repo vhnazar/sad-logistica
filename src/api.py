@@ -1,16 +1,20 @@
-from fastapi import FastAPI
-from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
-from pydantic import BaseModel
-from pathlib import Path
-import sys
-import os
-from dotenv import load_dotenv
-from urllib.parse import quote_plus
-from sqlalchemy import create_engine, text
-import pandas as pd
 
+import os
+import sys
+from pathlib import Path
+from urllib.parse import quote_plus
+from typing import Optional
+import pandas as pd
+from dotenv import load_dotenv
+from fastapi import FastAPI, Query
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel
+from sqlalchemy import create_engine, text
+
+load_dotenv()
 sys.path.insert(0, str(Path(__file__).parent))
+
 from score import sugerir_atribuicoes, buscar_operadores
 from regras import aplicar_regras
 from rota import otimizar_rota
@@ -329,3 +333,172 @@ def atribuir_os(req: AtribuicaoRequest):
         """), {"os_id": req.os_id})
 
     return {"sucesso": True, "os_id": req.os_id, "operador_id": req.operador_id}
+
+# DASHBOARD
+
+@app.get("/dashboard/resumo")
+def get_dashboard_resumo(
+    dias:        Optional[int] = Query(90),
+    deposito_id: Optional[int] = Query(None),
+    tipo_os:     Optional[str] = Query(None)
+):
+    with engine.begin() as conn:
+        params  = {}
+        filtros = ["ex.status = 'finalizada'"]
+
+        if dias:
+            filtros.append(f"ex.inicio >= NOW() - INTERVAL '{dias} days'")
+        if deposito_id:
+            filtros.append("ed.deposito_id = :deposito_id")
+            params["deposito_id"] = deposito_id
+        if tipo_os:
+            filtros.append("ot.codigo = :tipo_os")
+            params["tipo_os"] = tipo_os
+
+        filtros.append("ex.tempo_segundos BETWEEN 60 AND 7200")
+        where = " AND ".join(filtros)
+
+        result = conn.execute(text(f"""
+            SELECT
+                COUNT(DISTINCT ex.id)                   AS total_execucoes,
+                COUNT(DISTINCT ex.operador_id)           AS total_operadores,
+                ROUND(AVG(ex.tempo_segundos) / 60.0, 1) AS tempo_medio_min,
+                ROUND(MIN(ex.tempo_segundos) / 60.0, 1) AS tempo_min_min,
+                ROUND(MAX(ex.tempo_segundos) / 60.0, 1) AS tempo_max_min,
+                COUNT(DISTINCT ex.os_id)                 AS os_executadas
+            FROM execucoes ex
+            JOIN os o         ON o.id       = ex.os_id
+            JOIN os_tipos ot  ON ot.codigo  = o.tipo_codigo
+            JOIN os_itens oi  ON oi.os_id   = ex.os_id
+            JOIN enderecos ed ON ed.id      = oi.endereco_id
+            WHERE {where}
+        """), params)
+
+        return dict(result.fetchone()._mapping)
+
+
+@app.get("/dashboard/produtividade")
+def get_dashboard_produtividade(
+    dias:        Optional[int] = Query(90),
+    deposito_id: Optional[int] = Query(None),
+    tipo_os:     Optional[str] = Query(None)
+):
+    with engine.begin() as conn:
+        params  = {}
+        filtros = ["ex.status = 'finalizada'"]
+
+        if dias:
+            filtros.append(f"ex.inicio >= NOW() - INTERVAL '{dias} days'")
+        if deposito_id:
+            filtros.append("ed.deposito_id = :deposito_id")
+            params["deposito_id"] = deposito_id
+        if tipo_os:
+            filtros.append("ot.codigo = :tipo_os")
+            params["tipo_os"] = tipo_os
+
+        filtros.append("ex.tempo_segundos BETWEEN 60 AND 7200")
+        where = " AND ".join(filtros)
+
+        result = conn.execute(text(f"""
+            SELECT
+                op.id                                    AS operador_id,
+                op.nome                                  AS operador,
+                ot.descricao                             AS tipo_os,
+                COUNT(ex.id)                             AS total_execucoes,
+                ROUND(AVG(ex.tempo_segundos) / 60.0, 1) AS tempo_medio_min,
+                ROUND(MIN(ex.tempo_segundos) / 60.0, 1) AS tempo_min_min,
+                ROUND(MAX(ex.tempo_segundos) / 60.0, 1) AS tempo_max_min
+            FROM execucoes ex
+            JOIN operadores op ON op.id       = ex.operador_id
+            JOIN os o          ON o.id        = ex.os_id
+            JOIN os_tipos ot   ON ot.codigo   = o.tipo_codigo
+            JOIN os_itens oi   ON oi.os_id    = ex.os_id
+            JOIN enderecos ed  ON ed.id       = oi.endereco_id
+            WHERE {where}
+            GROUP BY op.id, op.nome, ot.descricao
+            ORDER BY tempo_medio_min ASC
+        """), params)
+
+        return [dict(row._mapping) for row in result]
+
+
+@app.get("/dashboard/volume")
+def get_dashboard_volume(
+    dias:        Optional[int] = Query(90),
+    deposito_id: Optional[int] = Query(None),
+    tipo_os:     Optional[str] = Query(None)
+):
+    with engine.begin() as conn:
+        params  = {}
+        filtros = ["ex.status = 'finalizada'"]
+
+        if dias:
+            filtros.append(f"ex.inicio >= NOW() - INTERVAL '{dias} days'")
+        if deposito_id:
+            filtros.append("ed.deposito_id = :deposito_id")
+            params["deposito_id"] = deposito_id
+        if tipo_os:
+            filtros.append("ot.codigo = :tipo_os")
+            params["tipo_os"] = tipo_os
+
+        where = " AND ".join(filtros)
+
+        result = conn.execute(text(f"""
+            SELECT
+                DATE(ex.inicio)  AS data,
+                ot.descricao     AS tipo_os,
+                COUNT(ex.id)     AS total
+            FROM execucoes ex
+            JOIN os o        ON o.id      = ex.os_id
+            JOIN os_tipos ot ON ot.codigo = o.tipo_codigo
+            JOIN os_itens oi ON oi.os_id  = ex.os_id
+            JOIN enderecos ed ON ed.id    = oi.endereco_id
+            WHERE {where}
+            GROUP BY DATE(ex.inicio), ot.descricao
+            ORDER BY data ASC
+        """), params)
+
+        return [dict(row._mapping) for row in result]
+
+
+@app.get("/dashboard/congestionamento")
+def get_dashboard_congestionamento(
+    dias:        Optional[int] = Query(90),
+    deposito_id: Optional[int] = Query(None)
+):
+    with engine.begin() as conn:
+        params  = {}
+        filtros = ["ex.status = 'finalizada'"]
+
+        if dias:
+            filtros.append(f"ex.inicio >= NOW() - INTERVAL '{dias} days'")
+        if deposito_id:
+            filtros.append("ed.deposito_id = :deposito_id")
+            params["deposito_id"] = deposito_id
+
+        where = " AND ".join(filtros)
+
+        result = conn.execute(text(f"""
+            SELECT
+                EXTRACT(HOUR FROM ex.inicio)::INT AS hora,
+                EXTRACT(DOW  FROM ex.inicio)::INT AS dia_semana,
+                COUNT(ex.id)                       AS total_execucoes,
+                ROUND(AVG(ex.tempo_segundos) / 60.0, 1) AS tempo_medio_min
+            FROM execucoes ex
+            JOIN os_itens oi  ON oi.os_id = ex.os_id
+            JOIN enderecos ed ON ed.id    = oi.endereco_id
+            WHERE {where}
+            GROUP BY hora, dia_semana
+            ORDER BY dia_semana, hora
+        """), params)
+
+        return [dict(row._mapping) for row in result]
+
+
+@app.get("/dashboard/tipos_os")
+def get_dashboard_tipos_os():
+    with engine.begin() as conn:
+        result = conn.execute(text("""
+            SELECT codigo, descricao FROM os_tipos ORDER BY descricao
+        """))
+        return [dict(row._mapping) for row in result]

@@ -40,6 +40,7 @@ function carregarPagina(nomePagina) {
         'mapa':         () => typeof inicializarMapa        === 'function' && inicializarMapa(),
         'configuracao': () => typeof inicializarConfiguracao === 'function' && inicializarConfiguracao(),
         'atribuicao':   () => typeof inicializarAtribuicao  === 'function' && inicializarAtribuicao(),
+        'dashboard':    () => typeof inicializarDashboard === 'function' && inicializarDashboard(),
     };
 
     if (inicializadores[nomePagina]) inicializadores[nomePagina]();
