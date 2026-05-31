@@ -36,7 +36,7 @@ O objetivo é demonstrar a aplicação prática de Engenharia de Dados, Analytic
 ![Gerenciador de OS Status](docs/screenshots/05_gerenciador_itens_status.png)
 
 ### Otimizador de rota de produtos na OS
-![Otimizador de Rota de Produtos](docs/screenshots/9_rota_otimizada.png)
+![Otimizador de Rota de Produtos](docs/screenshots/09_rota_otimizada.png)
 
 ### Configuração de Atribuição
 ![Configuração de Atribuição](docs/screenshots/06_configuracao_regras.png)
@@ -383,8 +383,8 @@ python src/score.py
 
 ### Fase 5 - Melhorias futuras
 - [x] Otimização da ordem de coleta dentro da OS para mitigação de gargalo
+- [x] Dashboard de indicadores históricos
 - [ ] Autenticação de usuários e perfis de acesso
-- [ ] Dashboard de indicadores históricos
 - [ ] Restrição de nível por tipo de operador no motor
 
 ---
