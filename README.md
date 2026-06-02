@@ -44,6 +44,12 @@ O objetivo é demonstrar a aplicação prática de Engenharia de Dados, Analytic
 ### Painel de Indicadores Operacionais
 ![Painel de Indicadores](docs/screenshots/10_painel_de_indicadores.png)
 
+### Tela de Login
+![Tela de Login](docs/screenshots/12_tela_de_login.png)
+
+### Gerenciador de Usuários - Restrito ao Admin
+![Gerenciador de Usuários](docs/screenshots/11_gerenciador_de_usuarios.png)
+
 ### Modelo Preditivo - Previsto vs Real
 ![Previsto vs Real](docs/screenshots/07_modelo_previsto_real.png)
 
@@ -107,7 +113,8 @@ sad-logistica/
             ├── mapa.js               # Mapa de congestionamento
             ├── configuracao.js       # Configuração de regras
             ├── atribuicao.js         # Painel de atribuição
-            └── dashboard.js          # Painel de Indicadores
+            ├── dashboard.js          # Painel de Indicadores
+            └── usuarios.js           # Gerenciador de Usuários
 ```
 
 ---
@@ -130,6 +137,7 @@ O banco reflete a realidade de um armazém com dois depósitos:
 | `os_reservas` | Reservas de OS para operadores específicos |
 | `regras_atribuicao` | Regras de atribuição automática com condições JSONB |
 | `regras_presets` | Templates reutilizáveis de regras |
+| `usuarios` | Usuários do sistema com perfil (gestor/admin) e controle de acesso JWT |
 
 ### Destaques da modelagem
 
@@ -223,6 +231,13 @@ Aplicação SPA com menu lateral e navegação sem recarregar página.
 - Modal de confirmação com todos os detalhes antes de gravar
 - Badge de regra automática aplicada
 
+### Aba 5 - Painel de Indicadores
+- Cards de resumo: OS executadas, operadores ativos, tempo médio, mínimo e máximo
+- Gráfico donut: volume de OS por tipo
+- Gráfico de barras: top 15 operadores por tempo médio com filtro por tipo de OS
+- Heatmap: atividade por hora x dia da semana
+- Filtros globais: período, depósito e tipo de OS
+
 ---
 
 ## API
@@ -249,6 +264,11 @@ Aplicação SPA com menu lateral e navegação sem recarregar página.
 | `/dashboard/volume` | GET | Apresenta a distribuição e evolução do volume de ordens de serviço executadas. |
 | `/dashboard/congestionamento` | GET | Retorna dados para análise de concentração operacional por horário e dia da semana, utilizados em heatmaps e indicadores de carga. |
 | `/dashboard/tipo_os` | GET | Lista os tipos de ordens de serviço disponíveis para filtros e segmentação analítica. |
+| `/auth/login` | POST | Autentica usuário e retorna token JWT. |
+| `/auth/me` | GET | Retorna dados do usuário autenticado. |
+| `/auth/usuarios` | GET | Lista usuários cadastrados (restrito a admin). |
+| `/auth/usuarios` | POST | Cria novo usuário (restrito a admin). |
+| `/auth/usuarios/{id}/ativo` | PATCH | Ativa ou desativa um usuário (restrito a admin). |
 
 ---
 
@@ -299,6 +319,7 @@ Separação Carrinho Fracionado representa ~40% do volume, seguida de Paletizado
 - **SQLAlchemy / psycopg** - conexão Python com PostgreSQL
 - **Jupyter Notebook** - análise exploratória documentada
 - **HTML / CSS / JavaScript** - interface web SPA sem frameworks
+- **JWT (python-jose + bcrypt)** - autenticação stateless com tokens assinados
 
 ---
 
@@ -310,9 +331,20 @@ Separação Carrinho Fracionado representa ~40% do volume, seguida de Paletizado
 psql -U postgres -d sad_logistica -f schema.sql
 ```
 
+### 1.1. Criar usuário admin
+Gere o hash da sua senha:
+```bash
+python -c "import bcrypt; print(bcrypt.hashpw(b'sua_senha', bcrypt.gensalt()).decode())"
+```
+Execute no banco:
+```sql
+INSERT INTO usuarios (nome, login, senha_hash, perfil)
+VALUES ('Administrador', 'admin', 'hash_gerado', 'admin');
+```
+
 ### 2. Dependências Python
 ```bash
-pip install psycopg[binary] pandas matplotlib seaborn sqlalchemy faker jupyter python-dotenv fastapi uvicorn scikit-learn joblib
+pip install psycopg[binary] pandas matplotlib seaborn sqlalchemy faker jupyter python-dotenv fastapi uvicorn scikit-learn joblib bcrypt python-jose[cryptography] python-multipart
 ```
 
 ### 3. Variáveis de ambiente
@@ -323,6 +355,8 @@ DB_PASSWORD=sua_senha
 DB_HOST=localhost
 DB_PORT=5433
 DB_NAME=sad_logistica
+SECRET_KEY=secret_key_placeholder
+ALGORITHM=HS256
 ```
 
 ### 4. Gerar dados sintéticos
@@ -384,8 +418,8 @@ python src/score.py
 ### Fase 5 - Melhorias futuras
 - [x] Otimização da ordem de coleta dentro da OS para mitigação de gargalo
 - [x] Dashboard de indicadores históricos
-- [ ] Autenticação de usuários e perfis de acesso
-- [ ] Restrição de nível por tipo de operador no motor
+- [x] Autenticação de usuários e perfis de acesso
+- [ ] Simulação de impacto: Comparativo sem SAD vs com SAD
 
 ---
 
