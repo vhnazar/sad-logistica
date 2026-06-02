@@ -71,11 +71,11 @@ async function carregarOS() {
 
     try {
         // Busca OS pendentes com sugestões
-        const respostaPendentes = await fetch('/os/pendentes');
+        const respostaPendentes = await fetchAuth('/os/pendentes');
         const osPendentes = await respostaPendentes.json();
 
         // Busca OS reservadas
-        const respostaReservadas = await fetch('/os/reservadas');
+        const respostaReservadas = await fetchAuth('/os/reservadas');
         const osReservadas = await respostaReservadas.json();
 
         // Marca quais OS estão reservadas
@@ -197,7 +197,7 @@ async function cancelarReserva(osId) {
     if (!confirmar) return;
 
     try {
-        const resposta = await fetch(`/reservar/${osId}`, {
+        const resposta = await fetchAuth(`/reservar/${osId}`, {
             method: 'DELETE'
         });
         const resultado = await resposta.json();
@@ -293,7 +293,7 @@ async function confirmarReserva(osId) {
     }
 
     try {
-        const resposta = await fetch('/os/reservar', {
+        const resposta = await fetchAuth('/os/reservar', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -402,7 +402,7 @@ async function abrirDetalhesItens(osId) {
     document.body.appendChild(modal);
 
     try {
-        const resposta = await fetch(`/os/${osId}/itens`);
+        const resposta = await fetchAuth(`/os/${osId}/itens`);
         const itens = await resposta.json();
 
         const modalBody = modal.querySelector('.modal-body');
@@ -507,7 +507,7 @@ async function abrirRotaOtimizada(osId) {
     modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
 
     try {
-        const resposta = await fetch(`/os/${osId}/rota_otimizada`);
+        const resposta = await fetchAuth(`/os/${osId}/rota_otimizada`);
         const resultado = await resposta.json();
         const body = document.getElementById('modal-rota-body');
 

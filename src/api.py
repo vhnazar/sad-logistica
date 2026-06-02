@@ -3,12 +3,17 @@ import os
 import sys
 from pathlib import Path
 from urllib.parse import quote_plus
+from datetime import datetime, timedelta
 from typing import Optional
 import pandas as pd
 from dotenv import load_dotenv
 from fastapi import FastAPI, Query
+from fastapi import Depends, HTTPException, status
+from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
+import bcrypt
+from jose import JWTError, jwt
 from pydantic import BaseModel
 from sqlalchemy import create_engine, text
 
@@ -27,10 +32,143 @@ engine = create_engine(
     f"{os.getenv('DB_HOST')}:{os.getenv('DB_PORT')}/{os.getenv('DB_NAME')}"
 )
 
+# AUTENTICAÇÃO JWT
+
+SECRET_KEY = os.getenv("SECRET_KEY")
+ALGORITHM  = os.getenv("ALGORITHM")
+TOKEN_EXPIRE_MINUTES = 480
+
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
+
+class TokenResponse(BaseModel):
+    access_token: str
+    token_type:   str
+    perfil:       str
+    nome:         str
+
+class UsuarioCreate(BaseModel):
+    nome:  str
+    login: str
+    senha: str
+    perfil: str
+
+def verificar_senha(senha: str, hash: str) -> bool:
+    return bcrypt.checkpw(senha.encode(), hash.encode())
+
+def gerar_hash(senha: str) -> str:
+    return bcrypt.hashpw(senha.encode(), bcrypt.gensalt()).decode()
+
+def criar_token(data: dict) -> str:
+    payload = data.copy()
+    payload["exp"] = datetime.utcnow() + timedelta(minutes=TOKEN_EXPIRE_MINUTES)
+    return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
+
+def get_usuario_atual(token: str = Depends(oauth2_scheme)):
+    erro = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Token inválido ou expirado",
+        headers={"WWW-Authenticate": "Bearer"}
+    )
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        login   = payload.get("sub")
+        perfil  = payload.get("perfil")
+        if not login: raise erro
+        return {"login": login, "perfil": perfil}
+    except JWTError:
+        raise erro
+
+def requer_admin(usuario = Depends(get_usuario_atual)):
+    if usuario["perfil"] != "admin":
+        raise HTTPException(status_code=403, detail="Acesso restrito a administradores")
+    return usuario
+
 app = FastAPI(title="SAD Logística")
 
 # Arquivos estáticos (HTML, CSS, JS)
 app.mount("/static", StaticFiles(directory=Path(__file__).parent / "static"), name="static")
+
+# ROTAS DE AUTENTICAÇÃO
+
+@app.post("/auth/login", response_model=TokenResponse)
+def login(form: OAuth2PasswordRequestForm = Depends()):
+    with engine.begin() as conn:
+        result = conn.execute(text("""
+            SELECT id, nome, login, senha_hash, perfil
+            FROM usuarios
+            WHERE login = :login AND ativo = TRUE
+        """), {"login": form.username})
+        usuario = result.fetchone()
+
+    if not usuario or not verificar_senha(form.password, usuario.senha_hash):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Login ou senha inválidos"
+        )
+
+    token = criar_token({"sub": usuario.login, "perfil": usuario.perfil})
+    return {
+        "access_token": token,
+        "token_type":   "bearer",
+        "perfil":       usuario.perfil,
+        "nome":         usuario.nome
+    }
+
+
+@app.get("/auth/me")
+def get_me(usuario = Depends(get_usuario_atual)):
+    with engine.begin() as conn:
+        result = conn.execute(text("""
+            SELECT id, nome, login, perfil FROM usuarios
+            WHERE login = :login AND ativo = TRUE
+        """), {"login": usuario["login"]})
+        row = result.fetchone()
+    if not row:
+        raise HTTPException(status_code=404, detail="Usuário não encontrado")
+    return dict(row._mapping)
+
+
+@app.get("/auth/usuarios")
+def listar_usuarios(usuario = Depends(requer_admin)):
+    with engine.begin() as conn:
+        result = conn.execute(text("""
+            SELECT id, nome, login, perfil, ativo, criado_em
+            FROM usuarios
+            ORDER BY criado_em DESC
+        """))
+        return [dict(row._mapping) for row in result]
+
+
+@app.post("/auth/usuarios")
+def criar_usuario(dados: UsuarioCreate, usuario = Depends(requer_admin)):
+    if dados.perfil not in ("gestor", "admin"):
+        raise HTTPException(status_code=400, detail="Perfil inválido")
+    with engine.begin() as conn:
+        existe = conn.execute(text("""
+            SELECT id FROM usuarios WHERE login = :login
+        """), {"login": dados.login}).fetchone()
+        if existe:
+            raise HTTPException(status_code=400, detail="Login já cadastrado")
+        conn.execute(text("""
+            INSERT INTO usuarios (nome, login, senha_hash, perfil)
+            VALUES (:nome, :login, :senha_hash, :perfil)
+        """), {
+            "nome":       dados.nome,
+            "login":      dados.login,
+            "senha_hash": gerar_hash(dados.senha),
+            "perfil":     dados.perfil
+        })
+    return {"sucesso": True}
+
+
+@app.patch("/auth/usuarios/{usuario_id}/ativo")
+def toggle_usuario(usuario_id: int, usuario = Depends(requer_admin)):
+    with engine.begin() as conn:
+        conn.execute(text("""
+            UPDATE usuarios SET ativo = NOT ativo WHERE id = :id
+        """), {"id": usuario_id})
+    return {"sucesso": True}
+
 
 # Modelos de dados
 class ReservaRequest(BaseModel):
@@ -50,13 +188,13 @@ def index():
 
 
 @app.get("/os/pendentes")
-def get_os_pendentes():
+def get_os_pendentes(usuario = Depends(get_usuario_atual)):
     sugestoes = sugerir_atribuicoes()
     resultado = aplicar_regras(sugestoes.to_dict(orient="records"), engine)
     return resultado
 
 @app.get("/os/reservadas")
-def get_os_reservadas():
+def get_os_reservadas(usuario = Depends(get_usuario_atual)):
     with engine.begin() as conn:
         result = conn.execute(text("""
             SELECT * FROM vw_os_reservadas
@@ -64,7 +202,7 @@ def get_os_reservadas():
         return [dict(row) for row in result]
 
 @app.get("/mapa/congestionamento")
-def get_mapa_congestionamento():
+def get_mapa_congestionamento(usuario = Depends(get_usuario_atual)):
     import json
     with engine.begin() as conn:
         result = conn.execute(text("""
@@ -80,7 +218,7 @@ def get_mapa_congestionamento():
         return rows
 
 @app.get("/mapa/dimensoes")
-def get_dimensoes():
+def get_dimensoes(usuario = Depends(get_usuario_atual)):
     with engine.begin() as conn:
         result = conn.execute(text("""
             SELECT 
@@ -103,7 +241,7 @@ def get_dimensoes():
         return dados
 
 @app.get("/regras")
-def get_regras():
+def get_regras(usuario = Depends(get_usuario_atual)):
     with engine.begin() as conn:
         result = conn.execute(text("""
             SELECT r.*, op.nome AS operador_nome
@@ -115,7 +253,7 @@ def get_regras():
 
 
 @app.get("/regras/presets")
-def get_presets():
+def get_presets(usuario = Depends(get_usuario_atual)):
     with engine.begin() as conn:
         result = conn.execute(text("""
             SELECT * FROM regras_presets ORDER BY nome
@@ -133,7 +271,7 @@ class RegraRequest(BaseModel):
 
 
 @app.post("/regras")
-def criar_regra(req: RegraRequest):
+def criar_regra(req: RegraRequest, usuario = Depends(get_usuario_atual)):
     import json
     with engine.begin() as conn:
         result = conn.execute(text("""
@@ -154,7 +292,7 @@ def criar_regra(req: RegraRequest):
 
 
 @app.patch("/regras/{regra_id}/ativo")
-def toggle_regra(regra_id: int, ativo: bool):
+def toggle_regra(regra_id: int, ativo: bool, usuario = Depends(get_usuario_atual)):
     with engine.begin() as conn:
         conn.execute(text("""
             UPDATE regras_atribuicao
@@ -165,7 +303,7 @@ def toggle_regra(regra_id: int, ativo: bool):
 
 
 @app.delete("/regras/{regra_id}")
-def deletar_regra(regra_id: int):
+def deletar_regra(regra_id: int, usuario = Depends(get_usuario_atual)):
     with engine.begin() as conn:
         conn.execute(text("""
             DELETE FROM regras_atribuicao WHERE id = :id
@@ -173,7 +311,7 @@ def deletar_regra(regra_id: int):
     return {"sucesso": True}
 
 @app.post("/os/reservar")
-def reservar_os(req: ReservaRequest):
+def reservar_os(req: ReservaRequest, usuario = Depends(get_usuario_atual)):
     with engine.begin() as conn:
         reserva = conn.execute(text("""
             SELECT id FROM os_reservas
@@ -191,7 +329,7 @@ def reservar_os(req: ReservaRequest):
 
 
 @app.get("/os/{os_id}/itens")
-def get_itens_os(os_id: int):
+def get_itens_os(os_id: int, usuario = Depends(get_usuario_atual)):
     with engine.begin() as conn:
         result = conn.execute(text("""
             SELECT
@@ -218,7 +356,7 @@ def get_itens_os(os_id: int):
         return [row._mapping for row in result]
 
 @app.get("/os/{os_id}/rota_otimizada")
-def get_rota_otimizada(os_id: int):
+def get_rota_otimizada(os_id: int, usuario = Depends(get_usuario_atual)):
     import json
     from score import buscar_baseline, buscar_operadores_ativos
 
@@ -260,7 +398,7 @@ def get_rota_otimizada(os_id: int):
     return otimizar_rota(itens, operadores_ativos, baseline)
 
 @app.get("/operadores/disponiveis")
-def get_operadores():
+def get_operadores(usuario = Depends(get_usuario_atual)):
     operadores = buscar_operadores()
     return operadores[[
         "id", "nome", "deposito_id",
@@ -269,7 +407,7 @@ def get_operadores():
 
 
 @app.get("/operadores/status")
-def get_operadores_status():
+def get_operadores_status(usuario = Depends(get_usuario_atual)):
     with engine.begin() as conn:
         result = conn.execute(text("""
             SELECT
@@ -297,7 +435,7 @@ def get_operadores_status():
 
 
 @app.delete("/reservar/{os_id}")
-def cancelar_reserva(os_id: int):
+def cancelar_reserva(os_id: int, usuario = Depends(get_usuario_atual)):
     with engine.begin() as conn:
         conn.execute(text("""
             UPDATE os_reservas SET ativo = FALSE
@@ -307,7 +445,7 @@ def cancelar_reserva(os_id: int):
 
 
 @app.post("/atribuir")
-def atribuir_os(req: AtribuicaoRequest):
+def atribuir_os(req: AtribuicaoRequest, usuario = Depends(get_usuario_atual)):
     with engine.begin() as conn:
         # Conta itens pendentes da OS
         itens = conn.execute(text("""
@@ -340,7 +478,8 @@ def atribuir_os(req: AtribuicaoRequest):
 def get_dashboard_resumo(
     dias:        Optional[int] = Query(90),
     deposito_id: Optional[int] = Query(None),
-    tipo_os:     Optional[str] = Query(None)
+    tipo_os:     Optional[str] = Query(None),
+    usuario = Depends(get_usuario_atual)
 ):
     with engine.begin() as conn:
         params  = {}
@@ -381,7 +520,8 @@ def get_dashboard_resumo(
 def get_dashboard_produtividade(
     dias:        Optional[int] = Query(90),
     deposito_id: Optional[int] = Query(None),
-    tipo_os:     Optional[str] = Query(None)
+    tipo_os:     Optional[str] = Query(None),
+    usuario = Depends(get_usuario_atual)
 ):
     with engine.begin() as conn:
         params  = {}
@@ -426,7 +566,8 @@ def get_dashboard_produtividade(
 def get_dashboard_volume(
     dias:        Optional[int] = Query(90),
     deposito_id: Optional[int] = Query(None),
-    tipo_os:     Optional[str] = Query(None)
+    tipo_os:     Optional[str] = Query(None),
+    usuario = Depends(get_usuario_atual)
 ):
     with engine.begin() as conn:
         params  = {}
@@ -464,7 +605,8 @@ def get_dashboard_volume(
 @app.get("/dashboard/congestionamento")
 def get_dashboard_congestionamento(
     dias:        Optional[int] = Query(90),
-    deposito_id: Optional[int] = Query(None)
+    deposito_id: Optional[int] = Query(None),
+    usuario = Depends(get_usuario_atual)
 ):
     with engine.begin() as conn:
         params  = {}
@@ -496,7 +638,7 @@ def get_dashboard_congestionamento(
 
 
 @app.get("/dashboard/tipos_os")
-def get_dashboard_tipos_os():
+def get_dashboard_tipos_os(usuario = Depends(get_usuario_atual)):
     with engine.begin() as conn:
         result = conn.execute(text("""
             SELECT codigo, descricao FROM os_tipos ORDER BY descricao

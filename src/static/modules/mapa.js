@@ -82,8 +82,8 @@ async function carregarMapa() {
 
     try {
         const [resCong, resDim] = await Promise.all([
-            fetch('/mapa/congestionamento'),
-            fetch('/mapa/dimensoes')
+            fetchAuth('/mapa/congestionamento'),
+            fetchAuth('/mapa/dimensoes')
         ]);
         dadosMapa = await resCong.json();
         dimensoes = await resDim.json();

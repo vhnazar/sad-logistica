@@ -102,9 +102,9 @@ function renderizarEstruturaConfig() {
 async function carregarTudo() {
     try {
         const [resRegras, resPresets, resOps] = await Promise.all([
-            fetch('/regras'),
-            fetch('/regras/presets'),
-            fetch('/operadores/disponiveis')
+            fetchAuth('/regras'),
+            fetchAuth('/regras/presets'),
+            fetchAuth('/operadores/disponiveis')
         ]);
         regrasCarregadas    = await resRegras.json();
         presetsCarregados   = await resPresets.json();
@@ -254,7 +254,7 @@ async function salvarRegra() {
     }
 
     try {
-        const resposta = await fetch('/regras', {
+        const resposta = await fetchAuth('/regras', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ nome, modo, prioridade, operador_id, condicoes })
@@ -303,7 +303,7 @@ function fecharModalRegra() {
 
 async function toggleRegra(regraId, ativo) {
     try {
-        await fetch(`/regras/${regraId}/ativo?ativo=${ativo}`, { method: 'PATCH' });
+        await fetchAuth(`/regras/${regraId}/ativo?ativo=${ativo}`, { method: 'PATCH' });
         mostrarNotificacao(`Regra ${ativo ? 'ativada' : 'desativada'}.`, 'sucesso');
         carregarTudo();
     } catch (erro) {
@@ -315,7 +315,7 @@ async function toggleRegra(regraId, ativo) {
 async function deletarRegra(regraId) {
     if (!confirm('Deletar esta regra permanentemente?')) return;
     try {
-        await fetch(`/regras/${regraId}`, { method: 'DELETE' });
+        await fetchAuth(`/regras/${regraId}`, { method: 'DELETE' });
         mostrarNotificacao('Regra deletada.', 'sucesso');
         carregarTudo();
     } catch (erro) {

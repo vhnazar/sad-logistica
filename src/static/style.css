@@ -25,11 +25,11 @@
 }
 
 body {
-    display: flex;
     font-family: 'Segoe UI', sans-serif;
     background: var(--cor-fundo);
     color: var(--cor-texto);
-    height: 100vh;
+    margin: 0;
+    padding: 0;
 }
 
 /* SIDEBAR */
@@ -110,9 +110,11 @@ body {
 #conteudo {
     flex: 1;
     overflow-y: auto;
-    padding: 24px;
+    display: flex;
+    flex-direction: column;
     height: 100vh;
 }
+
 
 /* PÁGINAS */
 .pagina {
@@ -120,9 +122,9 @@ body {
 }
 
 .pagina.ativa {
-    display: flex;
-    flex-direction: column;
-    min-height: calc(100vh - 48px);
+    display: block;
+    padding: 24px;
+    flex: 1;
 }
 
 /* LISTA DE OS */
@@ -1250,3 +1252,212 @@ body {
 }
 
 .heatmap-celula:hover { transform: scale(1.1); }
+
+/* TELA DE LOGIN */
+
+#tela-login {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    width: 100vw;
+    background: var(--cor-fundo);
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 9999;
+}
+
+.login-card {
+    background: white;
+    border-radius: 12px;
+    padding: 40px;
+    width: 360px;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.10);
+}
+
+.login-logo {
+    text-align: center;
+    margin-bottom: 8px;
+}
+
+.login-logo span {
+    font-size: 28px;
+    font-weight: 700;
+    color: var(--cor-destaque);
+    display: block;
+}
+
+.login-logo small {
+    font-size: 12px;
+    color: var(--cor-texto-claro);
+}
+
+.login-titulo {
+    text-align: center;
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--cor-texto);
+    margin-bottom: 24px;
+}
+
+.login-form {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.login-campo {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.login-campo label {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--cor-texto-claro);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.login-input {
+    padding: 10px 14px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    font-size: 14px;
+    outline: none;
+    transition: border-color 0.2s;
+}
+
+.login-input:focus { border-color: var(--cor-destaque); }
+
+.login-erro {
+    font-size: 12px;
+    color: #c62828;
+    min-height: 16px;
+    margin: 0;
+}
+
+.btn-login {
+    background: var(--cor-destaque);
+    color: white;
+    border: none;
+    padding: 12px;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity 0.2s;
+}
+
+.btn-login:hover { opacity: 0.85; }
+.btn-login:disabled { opacity: 0.6; cursor: default; }
+
+/* TOPBAR E MENU DE USUÁRIO */
+
+#topbar {
+    display: flex;
+    justify-content: flex-end;
+    padding: 8px 24px;
+    background: white;
+    border-bottom: 1px solid #f0f0f0;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    flex-shrink: 0;
+}
+
+#usuario-menu {
+    position: relative;
+}
+
+.usuario-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    padding: 6px 12px;
+    border-radius: 6px;
+    transition: background 0.2s;
+    font-size: 13px;
+    color: var(--cor-texto);
+}
+
+.usuario-btn:hover { background: #f0f2f5; }
+
+.usuario-icone { font-size: 16px; }
+
+.usuario-seta {
+    font-size: 10px;
+    color: var(--cor-texto-claro);
+}
+
+.usuario-dropdown {
+    position: absolute;
+    top: calc(100% + 6px);
+    right: 0;
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+    min-width: 200px;
+    z-index: 500;
+    overflow: hidden;
+}
+
+.usuario-info {
+    padding: 14px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.usuario-info strong {
+    font-size: 13px;
+    color: var(--cor-texto);
+}
+
+.usuario-info small {
+    font-size: 11px;
+    color: var(--cor-texto-claro);
+}
+
+.usuario-divider {
+    border: none;
+    border-top: 1px solid #f0f0f0;
+    margin: 0;
+}
+
+.usuario-opcao {
+    display: block;
+    width: 100%;
+    padding: 10px 16px;
+    border: none;
+    background: none;
+    text-align: left;
+    font-size: 13px;
+    color: #c62828;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.usuario-opcao:hover { background: #fff5f5; }
+
+/* APP layout quando autenticado */
+#app {
+    display: flex;
+    min-height: 100vh;
+    width: 100%;
+}
+
+#conteudo {
+    flex: 1;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+}
+
+#conteudo .pagina {
+    padding: 24px;
+    flex: 1;
+}

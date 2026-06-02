@@ -8,58 +8,101 @@
 </head>
 <body>
 
-    <!-- MENU LATERAL -->
-    <nav id="sidebar">
-        <div id="sidebar-logo">
-            <span>SAD</span>
-            <small>Logística</small>
+    <!-- TELA DE LOGIN -->
+    <div id="tela-login">
+        <div class="login-card">
+            <div class="login-logo">
+                <span>SAD</span>
+                <small>Logística</small>
+            </div>
+            <h2 class="login-titulo">Acesso ao Sistema</h2>
+            <div class="login-form">
+                <div class="login-campo">
+                    <label>Login</label>
+                    <input type="text" id="login-input" class="login-input" placeholder="seu.login" autocomplete="username" />
+                </div>
+                <div class="login-campo">
+                    <label>Senha</label>
+                    <input type="password" id="senha-input" class="login-input" placeholder="••••••••" autocomplete="current-password" />
+                </div>
+                <p id="login-erro" class="login-erro"></p>
+                <button id="btn-login" class="btn-login">Entrar</button>
+            </div>
         </div>
+    </div>
 
-        <ul id="sidebar-menu">
-            <li class="menu-grupo">
-                <span class="menu-grupo-label">Logística</span>
-                <ul>
-                    <li>
-                        <a href="#" class="menu-item ativo" data-pagina="lista-os">
-                            Gerenciador de OS
-                        </a>
-                    </li>
-                    <li>
-                        <a href="#" class="menu-item" data-pagina="mapa">
-                            Mapa de Congestionamento
-                        </a>
-                    </li>
-                    <li>
-                        <a href="#" class="menu-item" data-pagina="configuracao">
-                            Configuração de Atribuição
-                        </a>
-                    </li>
-                    <li>
-                        <a href="#" class="menu-item" data-pagina="atribuicao">
-                            Painel de Atribuição
-                        </a>
-                    </li>
-                    <li>
-                        <a href="#" class="menu-item" data-pagina="dashboard">
-                            Painel de Indicadores
-                        </a>
-                    </li>
-                </ul>
-            </li>
-        </ul>
-    </nav>
+    <!-- APP PRINCIPAL -->
+    <div id="app" style="display:none">
 
-    <!-- CONTEÚDO PRINCIPAL -->
-    <main id="conteudo">
+        <!-- MENU LATERAL -->
+        <nav id="sidebar">
+            <div id="sidebar-logo">
+                <span>SAD</span>
+                <small>Logística</small>
+            </div>
 
-        <!-- cada aba é um div, só um fica visível por vez -->
-        <section id="pagina-lista-os" class="pagina ativa"></section>
-        <section id="pagina-mapa" class="pagina"></section>
-        <section id="pagina-configuracao" class="pagina"></section>
-        <section id="pagina-atribuicao" class="pagina"></section>
-        <section id="pagina-dashboard" class="pagina"></section>
+            <ul id="sidebar-menu">
+                <li class="menu-grupo">
+                    <span class="menu-grupo-label">Logística</span>
+                    <ul>
+                        <li>
+                            <a href="#" class="menu-item ativo" data-pagina="lista-os">
+                                Gerenciador de OS
+                            </a>
+                        </li>
+                        <li>
+                            <a href="#" class="menu-item" data-pagina="mapa">
+                                Mapa de Congestionamento
+                            </a>
+                        </li>
+                        <li>
+                            <a href="#" class="menu-item" data-pagina="configuracao">
+                                Configuração de Atribuição
+                            </a>
+                        </li>
+                        <li>
+                            <a href="#" class="menu-item" data-pagina="atribuicao">
+                                Painel de Atribuição
+                            </a>
+                        </li>
+                        <li>
+                            <a href="#" class="menu-item" data-pagina="dashboard">
+                                Painel de Indicadores
+                            </a>
+                        </li>
+                    </ul>
+                </li>
+                <li class="menu-grupo" id="menu-item-usuarios" style="display:none">
+                    <span class="menu-grupo-label">Administração</span>
+                    <ul>
+                        <li>
+                            <a href="#" class="menu-item" data-pagina="usuarios">
+                                Gerenciar Usuários
+                            </a>
+                        </li>
+                    </ul>
+                </li>
+            </ul>
+        </nav>
 
-    </main>
+        <!-- CONTEÚDO PRINCIPAL -->
+        <main id="conteudo">
+
+            <!-- Barra superior com menu de usuário -->
+            <div id="topbar">
+                <div id="usuario-menu"></div>
+            </div>
+
+            <section id="pagina-lista-os" class="pagina ativa"></section>
+            <section id="pagina-mapa" class="pagina"></section>
+            <section id="pagina-configuracao" class="pagina"></section>
+            <section id="pagina-atribuicao" class="pagina"></section>
+            <section id="pagina-dashboard" class="pagina"></section>
+            <section id="pagina-usuarios" class="pagina"></section>
+
+        </main>
+
+    </div>
 
     <!-- SCRIPTS -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
@@ -68,6 +111,7 @@
     <script src="/static/modules/configuracao.js"></script>
     <script src="/static/modules/atribuicao.js"></script>
     <script src="/static/modules/dashboard.js"></script>
+    <script src="/static/modules/usuarios.js"></script>
     <script src="/static/app.js"></script>
 
 </body>

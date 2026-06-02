@@ -85,8 +85,8 @@ function renderizarEstruturaAtribuicao() {
 async function carregarPainel() {
     try {
         const [resOS, resOps] = await Promise.all([
-            fetch('/os/pendentes'),
-            fetch('/operadores/status')
+            fetchAuth('/os/pendentes'),
+            fetchAuth('/operadores/status')
         ]);
         osPainel         = await resOS.json();
         operadoresPainel = await resOps.json();
@@ -254,7 +254,7 @@ function confirmarAtribuicao(osId, operadorId, operadorNome, manual) {
 
 async function executarAtribuicao(osId, operadorId) {
     try {
-        const resposta = await fetch('/atribuir', {
+        const resposta = await fetchAuth('/atribuir', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ os_id: osId, operador_id: operadorId })

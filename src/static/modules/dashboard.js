@@ -95,11 +95,11 @@ function renderizarEstruturaDashboard() {
 async function carregarDashboard() {
     try {
         const [resResumo, resProd, resVol, resCong, resTipos] = await Promise.all([
-            fetch(`/dashboard/resumo?dias=${filtrosDashboard.dias}${filtrosDashboard.deposito_id ? '&deposito_id='+filtrosDashboard.deposito_id : ''}${filtrosDashboard.tipo_os ? '&tipo_os='+filtrosDashboard.tipo_os : ''}`),
-            fetch(`/dashboard/produtividade?dias=${filtrosDashboard.dias}${filtrosDashboard.deposito_id ? '&deposito_id='+filtrosDashboard.deposito_id : ''}${filtrosDashboard.tipo_os ? '&tipo_os='+filtrosDashboard.tipo_os : ''}`),
-            fetch(`/dashboard/volume?dias=${filtrosDashboard.dias}${filtrosDashboard.deposito_id ? '&deposito_id='+filtrosDashboard.deposito_id : ''}${filtrosDashboard.tipo_os ? '&tipo_os='+filtrosDashboard.tipo_os : ''}`),
-            fetch(`/dashboard/congestionamento?dias=${filtrosDashboard.dias}${filtrosDashboard.deposito_id ? '&deposito_id='+filtrosDashboard.deposito_id : ''}`),
-            fetch('/dashboard/tipos_os')
+            fetchAuth(`/dashboard/resumo?dias=${filtrosDashboard.dias}${filtrosDashboard.deposito_id ? '&deposito_id='+filtrosDashboard.deposito_id : ''}${filtrosDashboard.tipo_os ? '&tipo_os='+filtrosDashboard.tipo_os : ''}`),
+            fetchAuth(`/dashboard/produtividade?dias=${filtrosDashboard.dias}${filtrosDashboard.deposito_id ? '&deposito_id='+filtrosDashboard.deposito_id : ''}${filtrosDashboard.tipo_os ? '&tipo_os='+filtrosDashboard.tipo_os : ''}`),
+            fetchAuth(`/dashboard/volume?dias=${filtrosDashboard.dias}${filtrosDashboard.deposito_id ? '&deposito_id='+filtrosDashboard.deposito_id : ''}${filtrosDashboard.tipo_os ? '&tipo_os='+filtrosDashboard.tipo_os : ''}`),
+            fetchAuth(`/dashboard/congestionamento?dias=${filtrosDashboard.dias}${filtrosDashboard.deposito_id ? '&deposito_id='+filtrosDashboard.deposito_id : ''}`),
+            fetchAuth('/dashboard/tipos_os')
         ]);
 
         dadosDashboard.resumo           = await resResumo.json();
