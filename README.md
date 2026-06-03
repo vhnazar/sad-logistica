@@ -56,6 +56,9 @@ O objetivo é demonstrar a aplicação prática de Engenharia de Dados, Analytic
 ### Modelo Preditivo - Importância das Features
 ![Importância das Features](docs/screenshots/08_modelo_features.png)
 
+### Simulação de Impacto - SAD vs Sem SAD
+![Simulação de Impacto](docs/screenshots/13_simulacao_impacto.png)
+
 ---
 
 ## Problema
@@ -96,7 +99,8 @@ sad-logistica/
 ├── notebooks/
 │   ├── 01_analise_exploratoria.ipynb # EDA completa
 │   ├── 02_motor_de_score.ipynb       # Demonstração do motor de score
-│   └── 03_modelo_preditivo.ipynb     # Treinamento e avaliação do modelo
+│   ├── 03_modelo_preditivo.ipynb     # Treinamento e avaliação do modelo
+|   └── 04_simulacao_impacto.ipynb    # Simulação de impacto SAD vs sem SAD (Monte Carlo)
 │
 └── src/
     ├── config.py                     # Configurações físicas do armazém
@@ -415,11 +419,11 @@ python src/score.py
 - [x] Notebook documentado com análise de features e visualizações
 - [x] Integração da previsão no motor de score com fallback automático
 
-### Fase 5 - Melhorias futuras
+### Fase 5 - Melhorias futuras (concluída)
 - [x] Otimização da ordem de coleta dentro da OS para mitigação de gargalo
 - [x] Dashboard de indicadores históricos
 - [x] Autenticação de usuários e perfis de acesso
-- [ ] Simulação de impacto: Comparativo sem SAD vs com SAD
+- [x] Simulação de impacto: Comparativo sem SAD vs com SAD
 
 ---
 
